@@ -1,0 +1,423 @@
+/* ═══════════════════════════════════════
+   Variables y Reset
+   ══════════════════════════════════════ */
+:root {
+    --bg-color: #0f1115;
+    --card-bg: #161920;
+    --card-border: #222630;
+    --text-primary: #f0f2f5;
+    --text-secondary: #8b92a5;
+    --accent-color: #00d4ff;
+    --accent-hover: #00b8e6;
+    --gradient: linear-gradient(135deg, #00d4ff 0%, #0070f3 100%);
+    --font-heading: 'Outfit', sans-serif;
+    --font-body: 'Inter', sans-serif;
+}
+
+/* Reset y estilos base */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ═══════════════════════════════════════
+   Navbar
+   ══════════════════════════════════════ */
+.navbar {
+    background: rgba(15, 17, 21, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--card-border);
+    padding: 15px 0;
+}
+
+.navbar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: -0.5px;
+}
+
+.logo .highlight {
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ═══════════════════════════════════════
+   Pill Navigation
+   ══════════════════════════════════════ */
+.pill-nav {
+    display: flex;
+    gap: 10px;
+    background: var(--card-bg);
+    padding: 5px;
+    border-radius: 30px;
+    border: 1px solid var(--card-border);
+}
+
+.pill {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.pill:hover {
+    color: var(--text-primary);
+}
+
+.pill.active {
+    background: var(--text-primary);
+    color: var(--bg-color);
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.icon-btn:hover {
+    color: var(--text-primary);
+    background: var(--card-bg);
+    transform: rotate(30deg);
+}
+
+.icon-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* ═══════════════════════════════════════
+   Grid principal
+   ══════════════════════════════════════ */
+main {
+    padding: 40px 0;
+    min-height: 80vh;
+}
+
+.news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 25px;
+}
+
+/* ═══════════════════════════════════════
+   Tarjetas de noticia
+   ══════════════════════════════════════ */
+.news-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    content-visibility: auto;
+    contain-intrinsic-size: 320px 400px;
+}
+
+.news-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(0, 212, 255, 0.3);
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+}
+
+/* Imagen de la tarjeta (relación de aspecto 16:9) */
+.card-img-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    overflow: hidden;
+}
+
+.card-img-wrapper img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.news-card:hover .card-img-wrapper img {
+    transform: scale(1.05);
+}
+
+.card-source {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Contenido textual de la tarjeta: título, fecha y enlace */
+.card-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.card-title {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.card-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--card-border);
+    padding-top: 15px;
+}
+
+.card-date {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Enlace "Leer artículo" con flecha animada al hacer hover */
+.read-more {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.3s ease;
+}
+
+.read-more:hover {
+    color: var(--accent-hover);
+}
+
+.read-more::after {
+    content: '→';
+    transition: transform 0.3s ease;
+}
+
+.read-more:hover::after {
+    transform: translateX(4px);
+}
+
+/* ═══════════════════════════════════════
+   Estados de carga
+   ══════════════════════════════════════ */
+.loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 15px;
+    color: var(--text-secondary);
+}
+
+.loader.hidden {
+    display: none;
+}
+
+.load-more-container {
+    margin-top: 30px;
+    padding: 20px 0;
+}
+
+.load-more-container.hidden {
+    display: none;
+}
+
+.action-btn {
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 12px 32px;
+    font-size: 1rem;
+}
+
+.action-btn:hover {
+    background: var(--accent-color);
+    color: var(--bg-color);
+    box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--card-border);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Esqueleto de carga: efecto de pulso mientras se obtienen las noticias */
+.skeleton {
+    animation: pulse 1.5s infinite;
+}
+
+.skeleton-img {
+    width: 100%;
+    padding-top: 56.25%;
+    background: var(--card-border);
+}
+
+.skeleton-text {
+    height: 12px;
+    background: var(--card-border);
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.skeleton-text.title {
+    height: 20px;
+    width: 80%;
+    margin-bottom: 15px;
+}
+
+.skeleton-text.short {
+    width: 60%;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+footer {
+    border-top: 1px solid var(--card-border);
+    padding: 30px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* Banner sticky de noticias nuevas */
+.new-news-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--gradient);
+    color: #000;
+    padding: 12px 20px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: .95rem;
+    cursor: pointer;
+    animation: slideInDown 0.35s ease forwards;
+    position: sticky;
+    top: 70px;
+    z-index: 90;
+}
+.new-news-banner:hover { opacity: .9; }
+.new-news-banner .banner-close {
+    background: rgba(0,0,0,.15);
+    border: none;
+    color: #000;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Animación de entrada para tarjetas insertadas automáticamente */
+.news-card.new-card {
+    animation: slideInDown 0.4s ease forwards;
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+@keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════
+   Responsive
+   ══════════════════════════════════════ */
+@media (max-width: 768px) {
+    .navbar-content {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .pill-nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}

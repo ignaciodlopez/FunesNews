@@ -1,0 +1,279 @@
+/**
+ * Lógica principal del frontend de FunesNews.
+ * Consume la API REST, renderiza tarjetas de noticias,
+ * gestiona filtros por fuente y detecta noticias nuevas en tiempo real.
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    // Referencias a elementos del DOM
+    const newsContainer = document.getElementById('news-container');
+    const sourceFilters = document.getElementById('source-filters');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const loader = document.getElementById('loader');
+    
+    let currentSource = 'Todas';
+    let availableSources = ['Todas'];
+    let currentPage = 1;
+    let shownIds = new Set();      // IDs de noticias ya mostradas en pantalla
+    let lastKnownUpdate = null;    // Último timestamp de actualización conocido
+
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const loadMoreContainer = document.getElementById('load-more-container');
+
+    let refreshTimer;
+
+    /** Escapa caracteres HTML para evitar XSS al insertar datos externos en el DOM. */
+    const escHtml = (str) => String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    /**
+     * Crea un elemento <article> de tarjeta de noticia listo para insertar en el DOM.
+     * @param {Object}  item  - Objeto noticia proveniente de la API.
+     * @param {boolean} isNew - Si es true, agrega la clase 'new-card' para la animación.
+     * @returns {HTMLElement}
+     */
+    const createCard = (item, isNew = false) => {
+        const card = document.createElement('article');
+        card.className = `news-card${isNew ? ' new-card' : ''}`;
+        card.innerHTML = `
+            <div class="card-img-wrapper">
+                <img src="${escHtml(item.image_url)}" alt="${escHtml(item.title)}" loading="lazy"
+                     onerror="this.src='https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=600&auto=format&fit=crop'">
+                <span class="card-source">${escHtml(item.source)}</span>
+            </div>
+            <div class="card-content">
+                <h2 class="card-title">${escHtml(item.title)}</h2>
+                <div class="card-footer">
+                    <span class="card-date">${formatDate(item.pub_date)}</span>
+                    <a href="article.php?id=${item.id}" class="read-more">Leer artículo</a>
+                </div>
+            </div>
+        `;
+        return card;
+    };
+
+    /**
+     * Obtiene noticias desde la API y actualiza la UI.
+     * @param {boolean} forceUpdate - Si es true, limpia el contenedor antes de renderizar.
+     * @param {number}  page        - Número de página para la paginación.
+     */
+    const fetchNews = async (forceUpdate = false, page = 1) => {
+        if (forceUpdate || page === 1) {
+            if (page === 1) {
+                newsContainer.innerHTML = '';
+            }
+            loader.classList.remove('hidden');
+            loadMoreContainer.classList.add('hidden');
+        } else {
+            // Estado de carga en el botón "Cargar más"
+            loadMoreBtn.textContent = 'Cargando...';
+            loadMoreBtn.disabled = true;
+        }
+
+        try {
+            let urlParams = `?page=${page}`;
+            if (currentSource !== 'Todas') {
+                urlParams += `&source=${encodeURIComponent(currentSource)}`;
+            }
+            const url = `api/news.php${urlParams}`;
+            
+            const res = await fetch(url);
+            const jsonData = await res.json();
+
+            if (jsonData.status === 'success') {
+                lastKnownUpdate = jsonData.last_update;
+                updateFilters(jsonData.sources);
+                renderNews(jsonData.data, page === 1);
+                
+                currentPage = jsonData.page;
+
+                if (jsonData.has_more) {
+                    loadMoreContainer.classList.remove('hidden');
+                } else {
+                    loadMoreContainer.classList.add('hidden');
+                }
+            } else {
+                console.error("Error from API:", jsonData.message);
+                if (page === 1) newsContainer.innerHTML = `<p class="error">Error loading news: ${jsonData.message}</p>`;
+            }
+        } catch (error) {
+            console.error("Networking Error:", error);
+            if (newsContainer.innerHTML.trim() === '') {
+                 newsContainer.innerHTML = '<p class="error">Error fetching data. Check tu conexión o asegúrate que el servidor PHP esté iniciado.</p>';
+            }
+        } finally {
+            loader.classList.add('hidden');
+            refreshBtn.classList.remove('loading');
+            refreshBtn.style.animation = '';
+            loadMoreBtn.textContent = 'Cargar más noticias';
+            loadMoreBtn.disabled = false;
+        }
+    };
+
+    /**
+     * Actualiza los botones de filtro por fuente solo cuando la lista cambia.
+     * @param {string[]} sources - Array de nombres de fuentes disponibles.
+     */
+    const updateFilters = (sources) => {
+        // Solo re-renderiza si la lista de fuentes cambió
+        if (JSON.stringify(sources) !== JSON.stringify(availableSources)) {
+            availableSources = sources;
+            sourceFilters.innerHTML = '';
+            
+            sources.forEach(source => {
+                const btn = document.createElement('button');
+                btn.className = `pill ${source === currentSource ? 'active' : ''}`;
+                btn.textContent = source;
+                btn.dataset.source = source;
+                
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentSource = source;
+                    currentPage = 1;
+                    shownIds.clear();
+                    lastKnownUpdate = null;
+                    fetchNews(true, 1); // Limpia pantalla al cambiar de fuente
+                });
+                
+                sourceFilters.appendChild(btn);
+            });
+        }
+    };
+
+    /**
+     * Formatea una fecha ISO a formato legible en español argentino.
+     * @param {string} dateString - Fecha en formato ISO 8601.
+     * @returns {string} Fecha formateada, ej: "02 abr 2026".
+     */
+    const formatDate = (dateString) => {
+        const options = { day: '2-digit', month: 'short', year: 'numeric' };
+        const d = new Date(dateString);
+        return d.toLocaleDateString('es-AR', options);
+    };
+
+    /**
+     * Crea y agrega tarjetas de noticias al DOM.
+     * @param {Array}   newsData       - Lista de objetos noticia provenientes de la API.
+     * @param {boolean} clearContainer - Si es true, limpia el contenedor antes de insertar.
+     */
+    const renderNews = (newsData, clearContainer = true) => {
+        if (!newsData || newsData.length === 0) {
+            if (clearContainer) newsContainer.innerHTML = '<p>No se encontraron noticias para esta fuente.</p>';
+            return;
+        }
+
+        if (clearContainer) {
+            newsContainer.innerHTML = '';
+            shownIds.clear();
+        }
+        
+        newsData.forEach(item => {
+            shownIds.add(item.id);
+            newsContainer.appendChild(createCard(item));
+        });
+    };
+
+    /**
+     * Inserta noticias nuevas al inicio del contenedor con animación de entrada.
+     * @param {Array} newItems - Noticias que aún no están en pantalla.
+     */
+    const prependNews = (newItems) => {
+        // Iterar en reversa para mantener el orden cronológico al hacer prepend
+        [...newItems].reverse().forEach(item => {
+            shownIds.add(item.id);
+            newsContainer.prepend(createCard(item, true));
+        });
+    };
+
+    /**
+     * Muestra un banner sticky encima del feed cuando llegan noticias nuevas.
+     * Al hacer click en el banner hace scroll al tope del feed.
+     * @param {number} count - Cantidad de noticias nuevas.
+     */
+    const showNewsBanner = (count) => {
+        // Si ya hay un banner, sólo actualiza el texto
+        const existing = document.getElementById('new-news-banner');
+        if (existing) {
+            existing.querySelector('.banner-text').textContent =
+                `↑ ${count} nueva${count > 1 ? 's noticias' : ' noticia'} — ver`;
+            return;
+        }
+
+        const banner = document.createElement('div');
+        banner.id = 'new-news-banner';
+        banner.className = 'new-news-banner';
+        banner.innerHTML = `
+            <span class="banner-text">↑ ${count} nueva${count > 1 ? 's noticias' : ' noticia'} — ver</span>
+            <button class="banner-close" aria-label="Cerrar">×</button>
+        `;
+
+        // Click en el banner: scroll al primer card nuevo
+        banner.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('banner-close')) {
+                newsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            banner.remove();
+        });
+
+        // Insertar justo antes del grid de noticias
+        newsContainer.parentElement.insertBefore(banner, newsContainer);
+    };
+
+    // ── Eventos ─────────────────────────────────────────────────────────
+    loadMoreBtn.addEventListener('click', () => {
+        fetchNews(false, currentPage + 1);
+    });
+
+    refreshBtn.addEventListener('click', () => {
+        currentPage = 1;
+        shownIds.clear();
+        lastKnownUpdate = null;
+        fetchNews(true, 1);
+        startAutoRefresh(); // reinicia el temporizador
+    });
+
+    /**
+     * Sondea la API cada 30 segundos. Si detecta noticias nuevas las inserta
+     * automáticamente al inicio del feed sin recargar la página.
+     */
+    const startAutoRefresh = () => {
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(async () => {
+            try {
+                let urlParams = `?page=1`;
+                if (currentSource !== 'Todas') {
+                    urlParams += `&source=${encodeURIComponent(currentSource)}`;
+                }
+                const res = await fetch(`api/news.php${urlParams}`);
+                const jsonData = await res.json();
+
+                // Si no hubo cambios desde la última consulta, no hacer nada
+                if (jsonData.status !== 'success' || jsonData.last_update === lastKnownUpdate) return;
+
+                lastKnownUpdate = jsonData.last_update;
+                updateFilters(jsonData.sources);
+
+                // Filtrar solo las noticias que aún no están en pantalla
+                const newItems = jsonData.data.filter(item => !shownIds.has(item.id));
+                if (newItems.length > 0) {
+                    prependNews(newItems);
+                    showNewsBanner(newItems.length);
+                    // Quitar el outline de highlight después de 5s
+                    setTimeout(() => {
+                        document.querySelectorAll('.news-card.new-card')
+                            .forEach(c => c.classList.remove('new-card'));
+                    }, 5000);
+                }
+            } catch (e) {
+                // Fallo silencioso: no interrumpir la experiencia del usuario
+            }
+        }, 30 * 1000); // Sondeo cada 30 segundos
+    };
+
+    // ── Inicialización ───────────────────────────────────────────────────
+    fetchNews(true);
+    startAutoRefresh();
+});

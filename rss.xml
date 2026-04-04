@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Feed RSS de ejemplo utilizado para desarrollo y pruebas locales. Fuente: La Voz de Funes. -->
+<rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:slash="http://purl.org/rss/1.0/modules/slash/"
+	>
+
+<channel>
+	<title>La Voz de Funes</title>
+	<atom:link href="https://lavozdefunes.com.ar/feed/" rel="self" type="application/rss+xml" />
+	<link>https://lavozdefunes.com.ar/</link>
+	<description>El nuevo diario digital de Funes: La Data que Importa</description>
+	<lastBuildDate>Thu, 02 Apr 2026 21:00:41 +0000</lastBuildDate>
+	<language>es</language>
+	<sy:updatePeriod>
+	hourly	</sy:updatePeriod>
+	<sy:updateFrequency>
+	1	</sy:updateFrequency>
+	<generator>https://wordpress.org/?v=6.9.4</generator>
+
+<image>
+	<url>https://i0.wp.com/lavozdefunes.com.ar/wp-content/uploads/2024/04/cropped-LA-VOZ-DE-FUNES-2.png?fit=32%2C32&#038;ssl=1</url>
+	<title>La Voz de Funes</title>
+	<link>https://lavozdefunes.com.ar/</link>
+	<width>32</width>
+	<height>32</height>
+</image> 
+<site xmlns="com-wordpress:feed-additions:1">230649651</site>	<item>
+		<title>Semana Santa en Funes: claves para comprar y cocinar pescado de forma segura</title>
+		<link>https://lavozdefunes.com.ar/semana-santa-en-funes-claves-para-comprar-y-cocinar-pescado-de-forma-segura/</link>
+		
+		<dc:creator><![CDATA[La Voz de Funes]]></dc:creator>
+		<pubDate>Thu, 02 Apr 2026 21:00:40 +0000</pubDate>
+				<category><![CDATA[Interés General]]></category>
+		<category><![CDATA[funes]]></category>
+		<category><![CDATA[Funes Ciudad]]></category>
+		<category><![CDATA[Pescado]]></category>
+		<category><![CDATA[Semana Santa]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7873</guid>
+
+					<description><![CDATA[En el marco de Semana Santa, muchas familias de Funes incorporan pescado a su mesa como parte de una tradición arraigada. Ante este aumento en el consumo, la Agencia Santafesina de Seguridad Alimentaria difundió una serie de recomendaciones para evitar riesgos y garantizar alimentos seguros.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7873</post-id>	</item>
+		<item>
+		<title>Rosario vivió una multitudinaria vigilia por Malvinas en el Monumento a la Bandera</title>
+		<link>https://lavozdefunes.com.ar/rosario-vivio-una-multitudinaria-vigilia-por-malvinas-en-el-monumento-a-la-bandera/</link>
+		
+		<dc:creator><![CDATA[Federico SH]]></dc:creator>
+		<pubDate>Thu, 02 Apr 2026 20:52:43 +0000</pubDate>
+				<category><![CDATA[Región]]></category>
+		<category><![CDATA[2 de Abril]]></category>
+		<category><![CDATA[Islas Malvinas]]></category>
+		<category><![CDATA[Monumento a la Bandera]]></category>
+		<category><![CDATA[rosario]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7869</guid>
+
+					<description><![CDATA[Miles de personas se congregaron en el Monumento a la Bandera, en el marco de una vigilia que se desarrolló desde la tarde del miércoles hasta la medianoche del jueves, a 44 años del conflicto en el Atlántico Sur.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7869</post-id>	</item>
+		<item>
+		<title>Funes vive una Semana Santa inestable: calor, tormentas y un alivio que se hace esperar</title>
+		<link>https://lavozdefunes.com.ar/funes-vive-una-semana-santa-inestable-calor-tormentas-y-un-alivio-que-se-hace-esperar/</link>
+		
+		<dc:creator><![CDATA[La Voz de Funes]]></dc:creator>
+		<pubDate>Thu, 02 Apr 2026 20:42:55 +0000</pubDate>
+				<category><![CDATA[Funes]]></category>
+		<category><![CDATA[Calor]]></category>
+		<category><![CDATA[Clima]]></category>
+		<category><![CDATA[Funes Ciudad]]></category>
+		<category><![CDATA[otoño]]></category>
+		<category><![CDATA[Semana Santa]]></category>
+		<category><![CDATA[Tormentas]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7866</guid>
+
+					<description><![CDATA[La ciudad de Funes comenzó el fin de semana largo de Semana Santa bajo un escenario climático cambiante. Las lluvias registradas durante la madrugada generaron un leve descenso de temperatura, aunque el ambiente continúa húmedo y con sensación térmica elevada.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7866</post-id>	</item>
+		<item>
+		<title>Argentina cerró su despedida con una goleada y renovó la ilusión rumbo al Mundial</title>
+		<link>https://lavozdefunes.com.ar/argentina-cerro-su-despedida-con-una-goleada-y-renovo-la-ilusion-rumbo-al-mundial/</link>
+		
+		<dc:creator><![CDATA[Federico SH]]></dc:creator>
+		<pubDate>Wed, 01 Apr 2026 11:56:00 +0000</pubDate>
+				<category><![CDATA[Deportes]]></category>
+		<category><![CDATA[AFA]]></category>
+		<category><![CDATA[Canadá]]></category>
+		<category><![CDATA[Estados Unidos]]></category>
+		<category><![CDATA[fútbol]]></category>
+		<category><![CDATA[GOAT]]></category>
+		<category><![CDATA[Messi]]></category>
+		<category><![CDATA[México]]></category>
+		<category><![CDATA[Mundial 2026]]></category>
+		<category><![CDATA[Selección Argentina]]></category>
+		<category><![CDATA[Zambia]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7863</guid>
+
+					<description><![CDATA[La selección argentina se despidió de su público en el país de la mejor manera: con una goleada 5 a 0 ante Zambia en La Bombonera, en el último amistoso previo al Mundial 2026. El equipo dirigido por Lionel Scaloni mostró una versión muy superior a la exhibida días atrás frente a Mauritania y dejó sensaciones positivas de cara a lo que viene.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7863</post-id>	</item>
+		<item>
+		<title>Funes bajo calor extremo: temperaturas elevadas, humedad alta y varios días sin alivio</title>
+		<link>https://lavozdefunes.com.ar/funes-bajo-calor-extremo-temperaturas-elevadas-humedad-alta-y-varios-dias-sin-alivio/</link>
+		
+		<dc:creator><![CDATA[La Voz de Funes]]></dc:creator>
+		<pubDate>Tue, 31 Mar 2026 14:08:41 +0000</pubDate>
+				<category><![CDATA[Funes]]></category>
+		<category><![CDATA[Calor]]></category>
+		<category><![CDATA[Clima]]></category>
+		<category><![CDATA[Funes Ciudad]]></category>
+		<category><![CDATA[Ola de Calor]]></category>
+		<category><![CDATA[otoño]]></category>
+		<category><![CDATA[Tormentas]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7860</guid>
+
+					<description><![CDATA[La ciudad de Funes atraviesa un período de calor intenso que comenzó a consolidarse en los últimos días y que, según distintos servicios meteorológicos, se mantendrá al menos hasta comienzos de abril. Las altas temperaturas, combinadas con niveles elevados de humedad, generan jornadas pesadas y noches con escaso descenso térmico.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7860</post-id>	</item>
+		<item>
+		<title>Despedida en casa: Argentina cierra la fecha FIFA ante Zambia con Messi desde el inicio</title>
+		<link>https://lavozdefunes.com.ar/despedida-en-casa-argentina-cierra-la-fecha-fifa-ante-zambia-con-messi-desde-el-inicio/</link>
+		
+		<dc:creator><![CDATA[Federico SH]]></dc:creator>
+		<pubDate>Tue, 31 Mar 2026 13:57:49 +0000</pubDate>
+				<category><![CDATA[Deportes]]></category>
+		<category><![CDATA[AFA]]></category>
+		<category><![CDATA[Canada]]></category>
+		<category><![CDATA[Estados Unidos]]></category>
+		<category><![CDATA[fútbol]]></category>
+		<category><![CDATA[Messi]]></category>
+		<category><![CDATA[México]]></category>
+		<category><![CDATA[Mundial 2026]]></category>
+		<category><![CDATA[Zambia]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7856</guid>
+
+					<description><![CDATA[La Selección argentina afronta este martes su último compromiso en el país antes del Mundial 2026. El equipo dirigido por Lionel Scaloni se medirá ante Zambia en el estadio La Bombonera, en un partido que comenzará a las 20.30 y que marcará el cierre de la preparación local rumbo a la cita mundialista.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7856</post-id>	</item>
+		<item>
+		<title>¿Cuándo se termina el calor en Funes? Lo que dicen los datos para las próximas semanas</title>
+		<link>https://lavozdefunes.com.ar/cuando-se-termina-el-calor-en-funes/</link>
+		
+		<dc:creator><![CDATA[Federico SH]]></dc:creator>
+		<pubDate>Mon, 30 Mar 2026 19:01:28 +0000</pubDate>
+				<category><![CDATA[Funes]]></category>
+		<category><![CDATA[calor en Funes]]></category>
+		<category><![CDATA[clima Funes marzo]]></category>
+		<category><![CDATA[cuando baja la temperatura Rosario]]></category>
+		<category><![CDATA[fin del calor Argentina]]></category>
+		<category><![CDATA[otoño Funes clima]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7853</guid>
+
+					<description><![CDATA[El calor intenso empieza a ceder en Funes. Qué dicen los datos y cuándo se estabilizan las temperaturas en la región.]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7853</post-id>	</item>
+		<item>
+		<title>Funes digitaliza la TGI: desde abril llegará solo por correo electrónico</title>
+		<link>https://lavozdefunes.com.ar/funes-digitaliza-la-tgi-desde-abril-llegara-solo-por-correo-electronico/</link>
+		
+		<dc:creator><![CDATA[La Voz de Funes]]></dc:creator>
+		<pubDate>Fri, 27 Mar 2026 15:21:45 +0000</pubDate>
+				<category><![CDATA[Funes]]></category>
+		<category><![CDATA[Funes Ciudad]]></category>
+		<category><![CDATA[Municipalidad de Funes]]></category>
+		<category><![CDATA[Roly Santacroce]]></category>
+		<category><![CDATA[TGI]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7848</guid>
+
+					<description><![CDATA[La ciudad avanza hacia la modernización de sus servicios: hay tiempo hasta el 31 de marzo para registrar el domicilio electrónico Un paso hacia la gestión digital La ciudad de Funes continúa profundizando su proceso de modernización administrativa. A partir de abril de 2026, la Tasa General de Inmuebles (TGI) dejará de enviarse en formato...]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7848</post-id>	</item>
+		<item>
+		<title>Entre lo real y lo onírico: una muestra que celebra el arte y la memoria en Funes</title>
+		<link>https://lavozdefunes.com.ar/entre-lo-real-y-lo-onirico-una-muestra-que-celebra-el-arte-y-la-memoria-en-funes/</link>
+		
+		<dc:creator><![CDATA[La Voz de Funes]]></dc:creator>
+		<pubDate>Fri, 27 Mar 2026 14:34:42 +0000</pubDate>
+				<category><![CDATA[Funes]]></category>
+		<category><![CDATA[Arte]]></category>
+		<category><![CDATA[Carlos Raffo]]></category>
+		<category><![CDATA[Funes Ciudad]]></category>
+		<category><![CDATA[Museo Cochet]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7844</guid>
+
+					<description><![CDATA[El Museo Cochet presenta “Realismo y Sueño”, una exposición que recorre la trayectoria del artista Carlos Julio Raffo y su vínculo con la ciudad Un homenaje a una vida dedicada al arte El Museo Gustavo Cochet abre sus puertas a una propuesta cargada de sensibilidad y reconocimiento. La muestra “Realismo y Sueño” reúne una selección...]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7844</post-id>	</item>
+		<item>
+		<title>Tramo decisivo: confirmaron el calendario de las próximas cuatro fechas del Apertura</title>
+		<link>https://lavozdefunes.com.ar/tramo-decisivo-confirmaron-el-calendario-de-las-proximas-cuatro-fechas-del-apertura/</link>
+		
+		<dc:creator><![CDATA[Federico SH]]></dc:creator>
+		<pubDate>Fri, 27 Mar 2026 13:47:37 +0000</pubDate>
+				<category><![CDATA[Interés General]]></category>
+		<category><![CDATA[AFA]]></category>
+		<category><![CDATA[argentina]]></category>
+		<category><![CDATA[Central]]></category>
+		<category><![CDATA[fútbol]]></category>
+		<category><![CDATA[Liga Profesional]]></category>
+		<category><![CDATA[Newell`s Old Boys]]></category>
+		<category><![CDATA[rosario]]></category>
+		<guid isPermaLink="false">https://lavozdefunes.com.ar/?p=7836</guid>
+
+					<description><![CDATA[La Liga Profesional oficializó días y horarios de las jornadas 13 a 16. Newell&#8217;s Old Boys y Rosario Central ya conocen su camino en la recta final de la fase regular El torneo entra en etapa de definiciones La Liga Profesional de Fútbol dio a conocer el cronograma de las fechas 13, 14, 15 y...]]></description>
+		
+		
+		
+		<post-id xmlns="com-wordpress:feed-additions:1">7836</post-id>	</item>
+	</channel>
+</rss>
