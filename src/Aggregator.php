@@ -199,6 +199,7 @@ class Aggregator {
         if (isset($content->encoded)) {
             if (preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/i', (string)$content->encoded, $matches)) {
                 foreach ($matches[1] as $imgUrl) {
+                    $imgUrl = html_entity_decode($imgUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     if (stripos($imgUrl, '.gif') === false) return $imgUrl;
                 }
             }
@@ -208,6 +209,7 @@ class Aggregator {
         $rawDesc = (string)$item->description;
         if (preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/i', $rawDesc, $matches)) {
             foreach ($matches[1] as $imgUrl) {
+                $imgUrl = html_entity_decode($imgUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 if (stripos($imgUrl, '.gif') === false) return $imgUrl;
             }
         }

@@ -24,6 +24,10 @@ const ALLOWED_IMAGE_DOMAINS = [
     'i0.wp.com',
     'picsum.photos',
     'images.unsplash.com',
+    'infobae.com',
+    'tn.com.ar',
+    'resizer.lavoz.com.ar',
+    'cloudfront.net',
 ];
 
 // Tamaño máximo de imagen a proxiar: 8 MB
@@ -36,6 +40,9 @@ const CACHE_TTL = 86400;
 $cacheDir = __DIR__ . '/../data/img_cache';
 
 $rawUrl = $_GET['url'] ?? '';
+
+// Decodificar HTML entities (&amp; → &) que pueden venir de URLs mal almacenadas
+$rawUrl = html_entity_decode($rawUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
 // PHP decodifica los parámetros GET, por lo que la URL puede contener caracteres
 // no-ASCII en crudo (ej: U+200E LRM en el path). filter_var los rechaza, pero
@@ -99,13 +106,19 @@ if ($cachedFile && (time() - filemtime($cachedFile)) < CACHE_TTL) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Descargar imagen sin Referer (clave para evitar el hotlink block)
+// Descargar imagen simulando un navegador para evitar bloqueos 403
 $ctx = stream_context_create([
     'http' => [
         'timeout'         => 10,
-        'user_agent'      => 'FunesNewsAgent/1.0',
+        'user_agent'      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'follow_location' => 1,
-        'max_redirects'   => 3,
+        'max_redirects'   => 5,
+        'header'          => implode("\r\n", [
+            'Accept: image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language: es-AR,es;q=0.9',
+            'Accept-Encoding: identity',
+            'Cache-Control: no-cache',
+        ]),
     ],
     'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
 ]);
