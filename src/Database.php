@@ -73,26 +73,33 @@ class Database {
      *
      * @param array $newsItems Lista de noticias a guardar
      */
-    public function saveNews(array $newsItems): void {
+    public function saveNews(array $newsItems): int {
         $stmt = $this->pdo->prepare("
             INSERT OR IGNORE INTO news (title, link, image_url, source, pub_date, description, canonical_key)
             VALUES (:title, :link, :image_url, :source, :pub_date, :description, :canonical_key)
         ");
 
-        // Transacción para mejorar el rendimiento en inserciones masivas
+        $inserted = 0;
         $this->pdo->beginTransaction();
-        foreach ($newsItems as $item) {
-            $stmt->execute([
-                ':title'         => $item['title'],
-                ':link'          => $item['link'],
-                ':image_url'     => $item['image_url'],
-                ':source'        => $item['source'],
-                ':pub_date'      => $item['pub_date'],
-                ':description'   => $item['description'] ?? null,
-                ':canonical_key' => $item['canonical_key'] ?? null,
-            ]);
+        try {
+            foreach ($newsItems as $item) {
+                $stmt->execute([
+                    ':title'         => $item['title'],
+                    ':link'          => $item['link'],
+                    ':image_url'     => $item['image_url'],
+                    ':source'        => $item['source'],
+                    ':pub_date'      => $item['pub_date'],
+                    ':description'   => $item['description'] ?? null,
+                    ':canonical_key' => $item['canonical_key'] ?? null,
+                ]);
+                $inserted += $stmt->rowCount();
+            }
+            $this->pdo->commit();
+        } catch (\Exception $e) {
+            $this->pdo->rollBack();
+            throw $e;
         }
-        $this->pdo->commit();
+        return $inserted;
     }
 
     /**

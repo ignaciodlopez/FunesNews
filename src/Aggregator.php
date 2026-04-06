@@ -10,6 +10,11 @@ class Aggregator {
     private string $logFile;
 
     private function log(string $message): void {
+        // Rotar log cuando supera 500 KB: conservar las últimas 300 líneas
+        if (file_exists($this->logFile) && filesize($this->logFile) > 512000) {
+            $lines = file($this->logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            file_put_contents($this->logFile, implode(PHP_EOL, array_slice($lines, -300)) . PHP_EOL);
+        }
         $line = '[' . date('Y-m-d H:i:s') . '] ' . $message . PHP_EOL;
         file_put_contents($this->logFile, $line, FILE_APPEND | LOCK_EX);
     }
@@ -52,12 +57,13 @@ class Aggregator {
             $newsList = array_merge($newsList, $scrapedItems);
         }
 
+        $saved = 0;
         if (!empty($newsList)) {
             $newsList = $this->deduplicateItems($newsList);
-            $this->db->saveNews($newsList);
+            $saved = $this->db->saveNews($newsList);
         }
 
-        $this->log('Total artículos procesados: ' . count($newsList));
+        $this->log('Procesados: ' . count($newsList) . ', nuevos guardados: ' . $saved);
         
         $this->db->setLastUpdate(time());
     }
@@ -135,16 +141,32 @@ class Aggregator {
         ]);
 
         $rssContent = @file_get_contents($url, false, $ctx);
-        if (!$rssContent) {
+        if ($rssContent === false || $rssContent === '') {
             $this->log("[ERROR] {$sourceName}: no se pudo descargar el feed ({$url})");
-            return $this->getMockData($sourceName);
+            return [];
         }
 
+        // Verificar código HTTP — rechazar respuestas de error antes de parsear
+        if (!empty($http_response_header)) {
+            if (preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $hm) && (int)$hm[1] >= 400) {
+                $this->log("[ERROR] {$sourceName}: feed retornó HTTP {$hm[1]} ({$url})");
+                return [];
+            }
+        }
+
+        libxml_use_internal_errors(true);
         try {
             $xml = simplexml_load_string($rssContent);
+            libxml_clear_errors();
             if ($xml && isset($xml->channel->item)) {
-                $this->log("[OK] {$sourceName}: feed descargado correctamente");
                 foreach ($xml->channel->item as $item) {
+                    // Decodificar entities en título y link antes de cualquier uso
+                    $title = trim(html_entity_decode((string)$item->title, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                    $link  = trim(html_entity_decode((string)$item->link,  ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+                    // Descartar ítems sin título o sin link válido
+                    if ($title === '' || $link === '' || !str_starts_with($link, 'http')) continue;
+
                     $image = $this->extractImage($item);
                     $pubDateStr = (string)$item->pubDate;
                     $pubDateTimestamp = strtotime($pubDateStr) ?: time();
@@ -157,21 +179,24 @@ class Aggregator {
                     }
 
                     $items[] = [
-                        'title' => trim((string)$item->title),
-                        'link' => trim((string)$item->link),
-                        'image_url' => $image,
-                        'source' => $sourceName,
-                        'pub_date' => date('Y-m-d H:i:s', $pubDateTimestamp),
-                        'description' => $description ?: null
+                        'title'       => $title,
+                        'link'        => $link,
+                        'image_url'   => $image,
+                        'source'      => $sourceName,
+                        'pub_date'    => date('Y-m-d H:i:s', $pubDateTimestamp),
+                        'description' => $description ?: null,
                     ];
                 }
+                $this->log("[OK] {$sourceName}: " . count($items) . " artículos obtenidos");
             } else {
+                libxml_clear_errors();
                 $this->log("[WARN] {$sourceName}: feed inválido o sin ítems");
-                return $this->getMockData($sourceName);
+                return [];
             }
         } catch (Exception $e) {
+            libxml_clear_errors();
             $this->log("[ERROR] {$sourceName}: excepción al parsear — " . $e->getMessage());
-            return $this->getMockData($sourceName);
+            return [];
         }
 
         return $items;
@@ -195,8 +220,8 @@ class Aggregator {
             foreach ($item->enclosure as $enc) {
                 $type = (string)$enc['type'];
                 if (strpos($type, 'image/') !== false) {
-                    $url = (string)$enc['url'];
-                    if (stripos($url, '.gif') === false) return $url;
+                    $url = trim((string)$enc['url']);
+                    if ($url !== '' && str_starts_with($url, 'http') && stripos($url, '.gif') === false) return $url;
                 }
             }
         }
@@ -204,8 +229,8 @@ class Aggregator {
         // 2º: media:content
         $media = $item->children('media', true);
         if (isset($media->content)) {
-            $url = (string)$media->content->attributes()->url;
-            if ($url !== '' && stripos($url, '.gif') === false) return $url;
+            $url = trim((string)$media->content->attributes()->url);
+            if ($url !== '' && str_starts_with($url, 'http') && stripos($url, '.gif') === false) return $url;
         }
 
         // 3º: primer <img> en content:encoded
@@ -256,10 +281,19 @@ class Aggregator {
         ]);
 
         $html = @file_get_contents($url, false, $ctx);
-        if (!$html) {
+        if ($html === false || $html === '') {
             $this->log("[ERROR] {$sourceName}: no se pudo descargar la página ({$url})");
-            return $this->getMockData($sourceName);
+            return [];
         }
+
+        // Verificar código HTTP
+        if (!empty($http_response_header)) {
+            if (preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $hm) && (int)$hm[1] >= 400) {
+                $this->log("[ERROR] {$sourceName}: página retornó HTTP {$hm[1]} ({$url})");
+                return [];
+            }
+        }
+
         $this->log("[OK] {$sourceName}: página descargada correctamente");
 
         // Extraer base URL para resolver links relativos
@@ -297,7 +331,7 @@ class Aggregator {
             $byUrl[$href] = $title;
         }
 
-        if (empty($byUrl)) return $this->getMockData($sourceName);
+        if (empty($byUrl)) return [];
 
         // Para cada URL encontrada, buscar imagen y fecha en el HTML
         // Usamos regex sobre el HTML crudo para evitar problemas de estructura DOM
@@ -305,10 +339,9 @@ class Aggregator {
         foreach ($byUrl as $link => $title) {
             // Buscar fecha cerca del link en el HTML crudo (formato YYYY-MM-DD HH:MM:SS)
             $pubDate  = date('Y-m-d H:i:s');
-            $urlPath  = parse_url($link, PHP_URL_PATH);
-            $pattern  = preg_quote(ltrim($urlPath, '/'), '/');
+            $urlPath  = parse_url($link, PHP_URL_PATH) ?? '';
             // Buscar fecha en los 800 chars que rodean la URL del artículo
-            $pos = strpos($html, ltrim($urlPath, '/'));
+            $pos = $urlPath !== '' ? strpos($html, ltrim($urlPath, '/')) : false;
             if ($pos !== false) {
                 $chunk = substr($html, max(0, $pos - 400), 800);
                 if (preg_match('/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/', $chunk, $dm)) {
@@ -355,7 +388,7 @@ class Aggregator {
             if (count($items) >= 20) break;
         }
 
-        return !empty($items) ? $items : $this->getMockData($sourceName);
+        return $items;
     }
 
     /**
@@ -370,15 +403,16 @@ class Aggregator {
     {
         $ctx = stream_context_create([
             'http' => [
-                'timeout'         => 5,
+                'timeout'         => 3,
                 'user_agent'      => 'FunesNewsAgent/1.0',
                 'follow_location' => 1,
+                'max_redirects'   => 3,
             ],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
 
         $html = @file_get_contents($url, false, $ctx);
-        if ($html === false) {
+        if ($html === false || $html === '') {
             return null;
         }
 
