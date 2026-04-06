@@ -9,6 +9,10 @@ class Aggregator {
     private Database $db;
     private string $logFile;
 
+    private const USER_AGENT =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        . 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
     private function log(string $message): void {
         // Rotar log cuando supera 500 KB: conservar las últimas 300 líneas
         if (file_exists($this->logFile) && filesize($this->logFile) > 512000) {
@@ -163,7 +167,7 @@ class Aggregator {
     private function parseFeed(string $url, string $sourceName): array {
         $items = [];
         $ctx = stream_context_create([
-            'http' => ['timeout' => 5, 'user_agent' => 'FunesNewsAgent/1.0'],
+            'http' => ['timeout' => 5, 'user_agent' => self::USER_AGENT],
             'ssl'  => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
 
@@ -359,7 +363,7 @@ class Aggregator {
      */
     private function scrapeHtmlPage(string $url, string $sourceName): array {
         $ctx = stream_context_create([
-            'http' => ['timeout' => 8, 'user_agent' => 'FunesNewsAgent/1.0'],
+            'http' => ['timeout' => 8, 'user_agent' => self::USER_AGENT],
             'ssl'  => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
 
@@ -486,10 +490,11 @@ class Aggregator {
     {
         $ctx = stream_context_create([
             'http' => [
-                'timeout'         => 3,
-                'user_agent'      => 'FunesNewsAgent/1.0',
+                'timeout'         => 8,
+                'user_agent'      => self::USER_AGENT,
                 'follow_location' => 1,
                 'max_redirects'   => 3,
+                'header'          => "Accept: text/html,*/*\r\nAccept-Language: es-AR,es;q=0.9\r\n",
             ],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
