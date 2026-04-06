@@ -13,20 +13,7 @@ require_once __DIR__ . '/../src/ArticleSummarizer.php';
 $db = new Database();
 $summarizer = new ArticleSummarizer($db);
 
-// Obtener artículos con snippet RSS (terminan en "...") o sin descripción
-$pdo  = new PDO('sqlite:' . __DIR__ . '/../data/news.sqlite');
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-$rows = $pdo->query("
-    SELECT id, title, link, description
-    FROM news
-    WHERE link NOT LIKE 'https://example.com%'
-      AND (
-          description IS NULL
-          OR (description LIKE '%...' AND LENGTH(description) < 500)
-      )
-    ORDER BY id DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+$rows = $db->getArticlesNeedingSummary();
 
 echo count($rows) . " artículos con descripción incompleta o faltante." . PHP_EOL . PHP_EOL;
 
@@ -48,6 +35,3 @@ foreach ($rows as $article) {
 }
 
 echo PHP_EOL . "Completado: $ok ok, $fail fallidos." . PHP_EOL;
-
-
-echo "\nListo. Correctos: {$ok} — Fallidos: {$fail}\n";

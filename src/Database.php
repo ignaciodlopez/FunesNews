@@ -193,6 +193,27 @@ class Database {
     }
 
     /**
+     * Devuelve artículos sin descripción o con snippet RSS que necesitan resumen IA.
+     * Un snippet se detecta como descripción que termina en '...' y tiene menos de 500 chars.
+     *
+     * @return array Lista de artículos con id, title, link, description
+     */
+    public function getArticlesNeedingSummary(): array {
+        $stmt = $this->pdo->prepare("
+            SELECT id, title, link, description
+            FROM news
+            WHERE link NOT LIKE 'https://example.com%'
+              AND (
+                  description IS NULL
+                  OR (description LIKE '%...' AND LENGTH(description) < 500)
+              )
+            ORDER BY id DESC
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Devuelve la lista de fuentes presentes en la base de datos, sin duplicados y ordenadas.
      *
      * @return array Lista de nombres de fuentes (strings)

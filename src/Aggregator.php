@@ -260,27 +260,36 @@ class Aggregator {
             if ($url !== '' && str_starts_with($url, 'http') && stripos($url, '.gif') === false) return $url;
         }
 
-        // 3º: primer <img> en content:encoded (excluyendo contenedores de anuncios)
+        // 3º: primer <img> en content:encoded (excluyendo anuncios e imágenes retrato)
         $content = $item->children('content', true);
         if (isset($content->encoded)) {
             $encodedHtml = (string)$content->encoded;
-            // Eliminar bloques de publicidad antes de buscar imágenes
             $encodedHtml = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $encodedHtml);
-            if (preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/i', $encodedHtml, $matches)) {
-                foreach ($matches[1] as $imgUrl) {
-                    $imgUrl = html_entity_decode($imgUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    if (stripos($imgUrl, '.gif') === false && !$this->isAdImage($imgUrl)) return $imgUrl;
+            if (preg_match_all('/<img((?:[^>](?!\/>))*.)>/i', $encodedHtml, $tags)) {
+                foreach ($tags[0] as $tag) {
+                    if (!preg_match('/src=["\']([^"\']+)["\']/i', $tag, $sm)) continue;
+                    $imgUrl = html_entity_decode($sm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    preg_match('/width=["\']?(\d+)/i', $tag, $wm);
+                    preg_match('/height=["\']?(\d+)/i', $tag, $hm);
+                    $w = (int)($wm[1] ?? 0);
+                    $h = (int)($hm[1] ?? 0);
+                    if ($this->isUsableImage($imgUrl, $w, $h)) return $imgUrl;
                 }
             }
         }
 
-        // 4º: primer <img> en la descripción del ítem (excluyendo anuncios)
+        // 4º: primer <img> en la descripción del ítem (excluyendo anuncios e imágenes retrato)
         $rawDesc = (string)$item->description;
         $rawDesc = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $rawDesc);
-        if (preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/i', $rawDesc, $matches)) {
-            foreach ($matches[1] as $imgUrl) {
-                $imgUrl = html_entity_decode($imgUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                if (stripos($imgUrl, '.gif') === false && !$this->isAdImage($imgUrl)) return $imgUrl;
+        if (preg_match_all('/<img((?:[^>](?!\/>))*.)>/i', $rawDesc, $tags)) {
+            foreach ($tags[0] as $tag) {
+                if (!preg_match('/src=["\']([^"\']+)["\']/i', $tag, $sm)) continue;
+                $imgUrl = html_entity_decode($sm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                preg_match('/width=["\']?(\d+)/i', $tag, $wm);
+                preg_match('/height=["\']?(\d+)/i', $tag, $hm);
+                $w = (int)($wm[1] ?? 0);
+                $h = (int)($hm[1] ?? 0);
+                if ($this->isUsableImage($imgUrl, $w, $h)) return $imgUrl;
             }
         }
 
@@ -295,6 +304,36 @@ class Aggregator {
         // Último recurso: placeholder único generado con Picsum
         $seed = substr(md5($link), 0, 8);
         return "https://picsum.photos/seed/{$seed}/600/400";
+    }
+
+    /**
+     * Determina si una imagen es usable como portada de noticia.
+     * Descarta: GIFs, CDNs de emojis, imágenes retrato (alto > ancho),
+     * imágenes muy pequeñas, y banners publicitarios por nombre de archivo.
+     */
+    private function isUsableImage(string $url, int $w = 0, int $h = 0): bool {
+        if (!str_starts_with($url, 'http')) return false;
+        if (stripos($url, '.gif') !== false) return false;
+        if ($this->isAdImage($url)) return false;
+
+        // CDNs de emojis / íconos externos
+        $badDomains = ['fbcdn.net', 'emoji.php', 'twimg.com/emoji', 's.w.org/images/core/emoji'];
+        foreach ($badDomains as $d) {
+            if (str_contains($url, $d)) return false;
+        }
+
+        // Si el HTML informó dimensiones: descartar si es retrato o demasiado pequeña
+        if ($w > 0 && $h > 0) {
+            if ($h > $w) return false;   // retrato
+            if ($w < 100 || $h < 60) return false; // ícono
+        }
+
+        // Detectar tamaño retrato desde el sufijo de URL WordPress (-251x300)
+        if (preg_match('/-(?P<w>\d+)x(?P<h>\d+)\.(?:jpg|jpeg|png|webp)$/i', $url, $sz)) {
+            if ((int)$sz['h'] > (int)$sz['w']) return false;
+        }
+
+        return true;
     }
 
     /**

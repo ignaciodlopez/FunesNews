@@ -17,12 +17,18 @@ class ArticleSummarizer
     private const GEMINI_TIMEOUT  = 15;
     private const MIN_PARA_LENGTH = 60;
     private const MAX_PARAGRAPHS  = 8;
+    private const MAX_TEXT_CHARS  = 4000;   // ~1 000 tokens; evita derrochar cuota de Gemini
     private const GEMINI_ENDPOINT =
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+    private const SCRAPE_USER_AGENT =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        . 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
     private const NOISE_TAGS = [
         'script', 'style', 'nav', 'footer',
         'aside', 'form', 'header', 'figure', 'figcaption',
+        'noscript', 'iframe',
     ];
 
     public function __construct(private readonly Database $db) {}
@@ -37,6 +43,12 @@ class ArticleSummarizer
     {
         if (!empty($article['description'])) {
             return $article['description'];
+        }
+
+        // Validar esquema antes de scrapear (defensa en profundidad contra SSRF)
+        $scheme = strtolower(parse_url($article['link'], PHP_URL_SCHEME) ?? '');
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return null;
         }
 
         if (str_starts_with($article['link'], 'https://example.com')) {
@@ -66,8 +78,9 @@ class ArticleSummarizer
         $ctx = stream_context_create([
             'http' => [
                 'timeout'         => self::HTTP_TIMEOUT,
-                'user_agent'      => 'FunesNewsAgent/1.0',
+                'user_agent'      => self::SCRAPE_USER_AGENT,
                 'follow_location' => 1,
+                'header'          => "Accept: text/html,*/*\r\nAccept-Language: es-AR,es;q=0.9\r\n",
             ],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
@@ -75,6 +88,14 @@ class ArticleSummarizer
         $html = @file_get_contents($url, false, $ctx);
         if ($html === false) {
             return null;
+        }
+
+        // Detectar respuestas HTTP 4xx/5xx (evita parsear páginas de error como contenido)
+        if (!empty($http_response_header)) {
+            preg_match('/HTTP\/\S+\s+(\d+)/', $http_response_header[0] ?? '', $m);
+            if (isset($m[1]) && (int)$m[1] >= 400) {
+                return null;
+            }
         }
 
         libxml_use_internal_errors(true);
@@ -99,7 +120,12 @@ class ArticleSummarizer
             }
         }
 
-        return empty($paragraphs) ? null : implode("\n\n", $paragraphs);
+        if (empty($paragraphs)) {
+            return null;
+        }
+
+        // Truncar para no exceder la cuota de tokens de Gemini
+        return mb_substr(implode("\n\n", $paragraphs), 0, self::MAX_TEXT_CHARS);
     }
 
     /**
@@ -137,11 +163,29 @@ class ArticleSummarizer
 
         $response = @file_get_contents($endpoint, false, $ctx);
         if ($response === false) {
+            $this->log('[WARN] Gemini no respondió (timeout o red)');
             return null;
         }
 
+        // Detectar errores HTTP de la API (429 rate-limit, 400 bad request, etc.)
+        if (!empty($http_response_header)) {
+            preg_match('/HTTP\/\S+\s+(\d+)/', $http_response_header[0] ?? '', $m);
+            $statusCode = (int)($m[1] ?? 0);
+            if ($statusCode >= 400) {
+                $this->log("[WARN] Gemini HTTP {$statusCode}");
+                return null;
+            }
+        }
+
         $data = json_decode($response, true);
-        return $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+        $summary = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+
+        if ($summary === null) {
+            $errorMsg = $data['error']['message'] ?? 'respuesta inesperada';
+            $this->log('[WARN] Gemini: ' . $errorMsg);
+        }
+
+        return $summary;
     }
 
     /**
@@ -151,5 +195,13 @@ class ArticleSummarizer
     {
         $paragraphs = explode("\n\n", $text);
         return implode("\n\n", array_slice($paragraphs, 0, 2));
+    }
+
+    /** Escribe una línea en el log compartido con el Aggregator. */
+    private function log(string $message): void
+    {
+        $logFile = dirname(__DIR__) . '/data/aggregator.log';
+        $line    = '[' . date('Y-m-d H:i:s') . '] [Summarizer] ' . $message . PHP_EOL;
+        @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
     }
 }
