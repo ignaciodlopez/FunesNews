@@ -3,6 +3,7 @@ FROM php:8.2-apache
 # Instalar dependencias del sistema y extensiones PHP necesarias
 RUN apt-get update && apt-get install -y \
         libsqlite3-dev \
+        cron \
     && docker-php-ext-install pdo pdo_sqlite \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -20,4 +21,14 @@ RUN mkdir -p /var/www/html/data/img_cache \
     && chown -R www-data:www-data /var/www/html/data \
     && chmod -R 775 /var/www/html/data
 
+# Cron job: ejecuta el aggregator cada 2 minutos como www-data
+# El script ya tiene flock() para evitar ejecuciones simultáneas
+RUN echo "*/2 * * * * www-data /usr/local/bin/php /var/www/html/scripts/run_aggregator.php >> /var/www/html/data/aggregator.log 2>&1" \
+        > /etc/cron.d/funesnews \
+    && chmod 0644 /etc/cron.d/funesnews
+
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
