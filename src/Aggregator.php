@@ -8,6 +8,8 @@ declare(strict_types=1);
 class Aggregator {
     private Database $db;
     private string $logFile;
+    private string $statusFile;
+    private array $cycleStatus = [];
 
     private const USER_AGENT =
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -41,6 +43,7 @@ class Aggregator {
     public function __construct(Database $db) {
         $this->db = $db;
         $this->logFile = __DIR__ . '/../data/aggregator.log';
+        $this->statusFile = __DIR__ . '/../data/aggregator_status.json';
     }
 
     /**
@@ -49,6 +52,7 @@ class Aggregator {
      */
     public function fetchAll(): void {
         $newsList = [];
+        $this->cycleStatus = [];
         $this->log('--- Inicio ciclo de actualización ---');
 
         foreach ($this->feeds as $name => $url) {
@@ -65,12 +69,56 @@ class Aggregator {
         if (!empty($newsList)) {
             $newsList = $this->deduplicateItems($newsList);
             $newsList = $this->removeSiteWideImages($newsList);
+            $readyToSaveBySource = [];
+            foreach ($newsList as $item) {
+                $readyToSaveBySource[$item['source']] = ($readyToSaveBySource[$item['source']] ?? 0) + 1;
+            }
+            foreach ($readyToSaveBySource as $source => $count) {
+                $this->cycleStatus[$source]['ready_to_save'] = $count;
+            }
             $saved = $this->db->saveNews($newsList);
         }
 
         $this->log('Procesados: ' . count($newsList) . ', nuevos guardados: ' . $saved);
+        foreach ($this->cycleStatus as $source => $status) {
+            $this->log(sprintf(
+                '[SOURCE] %s | estado=%s | obtenidos=%d | listos=%d | detalle=%s',
+                $source,
+                $status['state'] ?? 'unknown',
+                (int)($status['items_fetched'] ?? 0),
+                (int)($status['ready_to_save'] ?? 0),
+                $status['message'] ?? 'sin detalle'
+            ));
+        }
+
+        $this->writeStatus([
+            'generated_at' => date(DATE_ATOM),
+            'saved' => $saved,
+            'processed' => count($newsList),
+            'sources' => $this->cycleStatus,
+        ]);
         
         $this->db->setLastUpdate(time());
+    }
+
+    private function setSourceStatus(string $sourceName, array $status): void {
+        $this->cycleStatus[$sourceName] = array_merge([
+            'state' => 'unknown',
+            'type' => 'feed',
+            'url' => null,
+            'items_fetched' => 0,
+            'ready_to_save' => 0,
+            'latest_pub_date' => null,
+            'message' => null,
+        ], $status);
+    }
+
+    private function writeStatus(array $payload): void {
+        file_put_contents(
+            $this->statusFile,
+            json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            LOCK_EX
+        );
     }
 
     /**
@@ -174,6 +222,12 @@ class Aggregator {
         $rssContent = @file_get_contents($url, false, $ctx);
         if ($rssContent === false || $rssContent === '') {
             $this->log("[ERROR] {$sourceName}: no se pudo descargar el feed ({$url})");
+            $this->setSourceStatus($sourceName, [
+                'state' => 'error',
+                'type' => 'feed',
+                'url' => $url,
+                'message' => 'No se pudo descargar el feed',
+            ]);
             return [];
         }
 
@@ -181,6 +235,12 @@ class Aggregator {
         if (!empty($http_response_header)) {
             if (preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $hm) && (int)$hm[1] >= 400) {
                 $this->log("[ERROR] {$sourceName}: feed retornó HTTP {$hm[1]} ({$url})");
+                $this->setSourceStatus($sourceName, [
+                    'state' => 'error',
+                    'type' => 'feed',
+                    'url' => $url,
+                    'message' => 'HTTP ' . $hm[1],
+                ]);
                 return [];
             }
         }
@@ -219,14 +279,40 @@ class Aggregator {
                     ];
                 }
                 $this->log("[OK] {$sourceName}: " . count($items) . " artículos obtenidos");
+                $latestPubDate = null;
+                foreach ($items as $entry) {
+                    if ($latestPubDate === null || $entry['pub_date'] > $latestPubDate) {
+                        $latestPubDate = $entry['pub_date'];
+                    }
+                }
+                $this->setSourceStatus($sourceName, [
+                    'state' => 'ok',
+                    'type' => 'feed',
+                    'url' => $url,
+                    'items_fetched' => count($items),
+                    'latest_pub_date' => $latestPubDate,
+                    'message' => 'Feed procesado correctamente',
+                ]);
             } else {
                 libxml_clear_errors();
                 $this->log("[WARN] {$sourceName}: feed inválido o sin ítems");
+                $this->setSourceStatus($sourceName, [
+                    'state' => 'warn',
+                    'type' => 'feed',
+                    'url' => $url,
+                    'message' => 'Feed inválido o sin ítems',
+                ]);
                 return [];
             }
         } catch (Exception $e) {
             libxml_clear_errors();
             $this->log("[ERROR] {$sourceName}: excepción al parsear — " . $e->getMessage());
+            $this->setSourceStatus($sourceName, [
+                'state' => 'error',
+                'type' => 'feed',
+                'url' => $url,
+                'message' => 'Excepción al parsear: ' . $e->getMessage(),
+            ]);
             return [];
         }
 
@@ -370,6 +456,12 @@ class Aggregator {
         $html = @file_get_contents($url, false, $ctx);
         if ($html === false || $html === '') {
             $this->log("[ERROR] {$sourceName}: no se pudo descargar la página ({$url})");
+            $this->setSourceStatus($sourceName, [
+                'state' => 'error',
+                'type' => 'scraper',
+                'url' => $url,
+                'message' => 'No se pudo descargar la página',
+            ]);
             return [];
         }
 
@@ -377,6 +469,12 @@ class Aggregator {
         if (!empty($http_response_header)) {
             if (preg_match('/HTTP\/\S+ (\d+)/', $http_response_header[0], $hm) && (int)$hm[1] >= 400) {
                 $this->log("[ERROR] {$sourceName}: página retornó HTTP {$hm[1]} ({$url})");
+                $this->setSourceStatus($sourceName, [
+                    'state' => 'error',
+                    'type' => 'scraper',
+                    'url' => $url,
+                    'message' => 'HTTP ' . $hm[1],
+                ]);
                 return [];
             }
         }
@@ -418,7 +516,15 @@ class Aggregator {
             $byUrl[$href] = $title;
         }
 
-        if (empty($byUrl)) return [];
+        if (empty($byUrl)) {
+            $this->setSourceStatus($sourceName, [
+                'state' => 'warn',
+                'type' => 'scraper',
+                'url' => $url,
+                'message' => 'No se detectaron enlaces de noticias',
+            ]);
+            return [];
+        }
 
         // Para cada URL encontrada, buscar imagen y fecha en el HTML
         // Usamos regex sobre el HTML crudo para evitar problemas de estructura DOM
@@ -474,6 +580,22 @@ class Aggregator {
 
             if (count($items) >= 20) break;
         }
+
+        $latestPubDate = null;
+        foreach ($items as $entry) {
+            if ($latestPubDate === null || $entry['pub_date'] > $latestPubDate) {
+                $latestPubDate = $entry['pub_date'];
+            }
+        }
+
+        $this->setSourceStatus($sourceName, [
+            'state' => 'ok',
+            'type' => 'scraper',
+            'url' => $url,
+            'items_fetched' => count($items),
+            'latest_pub_date' => $latestPubDate,
+            'message' => 'Página scrapeada correctamente',
+        ]);
 
         return $items;
     }

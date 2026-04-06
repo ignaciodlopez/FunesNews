@@ -21,6 +21,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let refreshTimer;
 
+    /**
+     * Consulta la API evitando depender del caché HTTP del navegador.
+     * Si el servidor responde 304, retorna null para que el caller conserve la UI actual.
+     * @param {string} url - URL de la API.
+     * @returns {Promise<Object|null>}
+     */
+    const fetchApiJson = async (url) => {
+        const res = await fetch(url, {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache',
+            },
+        });
+
+        if (res.status === 304) {
+            return null;
+        }
+
+        if (!res.ok) {
+            throw new Error(`Error HTTP: ${res.status}`);
+        }
+
+        return res.json();
+    };
+
     /** Escapa caracteres HTML para evitar XSS al insertar datos externos en el DOM. */
     const escHtml = (str) => String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -42,6 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'funeshoy.com.ar',
         'eloccidental.com.ar',
         'fmdiezfunes.com.ar',
+        'infobae.com',
+        'tn.com.ar',
+        'radiofonica.com',
+        'ambito.com',
+        'media.ambito.com',
+        'elliberador.com',
+        'resizer.glanacion.com',
     ];
 
     /**
@@ -137,12 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 urlParams += `&source=${encodeURIComponent(currentSource)}`;
             }
             const url = `api/news.php${urlParams}`;
+            const jsonData = await fetchApiJson(url);
 
-            const res = await fetch(url);
-            if (!res.ok) {
-                throw new Error(`Error HTTP: ${res.status}`);
+            if (jsonData === null) {
+                return;
             }
-            const jsonData = await res.json();
 
             if (jsonData.status === 'success') {
                 lastKnownUpdate = jsonData.last_update;
@@ -298,9 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentSource !== 'Todas') {
                     urlParams += `&source=${encodeURIComponent(currentSource)}`;
                 }
-                const res = await fetch(`api/news.php${urlParams}`);
-                if (!res.ok) return;
-                const jsonData = await res.json();
+                const jsonData = await fetchApiJson(`api/news.php${urlParams}`);
+                if (jsonData === null) return;
 
                 // Si no hubo cambios desde la última consulta, no hacer nada
                 if (jsonData.status !== 'success' || jsonData.last_update === lastKnownUpdate) return;

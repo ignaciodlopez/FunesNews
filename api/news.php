@@ -19,11 +19,10 @@ try {
     $minutesPassed = (time() - $lastUpdate) / 60;
 
     // Lanzar actualización en background cada 2 minutos.
-    // Se marca el timestamp ANTES de lanzar para que requests simultáneos
-    // no disparen múltiples procesos.
+    // last_update debe representar únicamente el estado ya persistido,
+    // no el intento de actualización. La exclusión mutua real la resuelve
+    // scripts/run_aggregator.php con flock().
     if ($minutesPassed >= 2) {
-        $db->setLastUpdate(time());
-        $lastUpdate = $db->getLastUpdate(); // Actualizar valor local tras el cambio
         $script = realpath(__DIR__ . '/../scripts/run_aggregator.php');
         if ($script !== false) {
             $php = PHP_BINARY;

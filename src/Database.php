@@ -222,4 +222,34 @@ class Database {
         $stmt = $this->pdo->query("SELECT DISTINCT source FROM news ORDER BY source ASC");
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
+
+    /**
+     * Devuelve métricas agregadas por fuente para monitoreo y diagnóstico.
+     * Incluye volumen total, actividad reciente y cobertura básica de imágenes.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getSourceStats(): array {
+        $stmt = $this->pdo->query("
+            SELECT
+                n.source,
+                COUNT(*) AS total_articles,
+                SUM(CASE WHEN n.pub_date >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) AS recent_articles,
+                MAX(n.pub_date) AS latest_pub_date,
+                SUM(CASE WHEN COALESCE(n.image_url, '') <> '' THEN 1 ELSE 0 END) AS articles_with_image,
+                SUM(CASE WHEN n.image_url LIKE 'https://picsum.photos/%' THEN 1 ELSE 0 END) AS placeholder_images,
+                (
+                    SELECT n2.title
+                    FROM news n2
+                    WHERE n2.source = n.source
+                    ORDER BY n2.pub_date DESC, n2.id DESC
+                    LIMIT 1
+                ) AS latest_title
+            FROM news n
+            GROUP BY n.source
+            ORDER BY n.source ASC
+        ");
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
