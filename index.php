@@ -86,7 +86,7 @@
     <!-- Pie de página del sitio -->
     <footer>
         <div class="container text-center">
-            <p>FunesNews &copy; 2026. Noticias en tiempo real.</p>
+            <p>FunesNews &copy; <?= date('Y') ?>. Noticias en tiempo real.</p>
         </div>
     </footer>
 
