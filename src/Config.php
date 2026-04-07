@@ -11,6 +11,28 @@ class Config
     private static bool $loaded = false;
 
     /**
+     * Inicializa la configuración global del proyecto.
+     * Actualmente fija la zona horaria local para evitar desfases de fecha.
+     */
+    public static function bootstrap(): void
+    {
+        if (!self::$loaded) {
+            self::load();
+        }
+
+        $timezone = self::$cache['APP_TIMEZONE'] ?? getenv('APP_TIMEZONE') ?? 'America/Argentina/Buenos_Aires';
+        $timezone = is_string($timezone) ? trim($timezone) : '';
+
+        if ($timezone === '' || !in_array($timezone, timezone_identifiers_list(), true)) {
+            $timezone = 'America/Argentina/Buenos_Aires';
+        }
+
+        if (date_default_timezone_get() !== $timezone) {
+            date_default_timezone_set($timezone);
+        }
+    }
+
+    /**
      * Devuelve el valor de una variable de entorno.
      * Primero busca en el .env del proyecto, luego en las variables del sistema.
      */
@@ -45,3 +67,5 @@ class Config
         }
     }
 }
+
+Config::bootstrap();

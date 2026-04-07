@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/Config.php';
+
 /**
  * Capa de acceso a datos SQLite.
  * Gestiona la tabla de noticias y la configuración clave-valor de la aplicación.
@@ -65,6 +67,40 @@ class Database {
                 value TEXT NOT NULL
             )
         ");
+
+        $this->normalizeLegacyUtcDates();
+    }
+
+    /**
+     * Ajusta una sola vez las fechas históricas que quedaron almacenadas en UTC
+     * antes de fijar la zona horaria local del proyecto.
+     */
+    private function normalizeLegacyUtcDates(): void {
+        $stmt = $this->pdo->query("SELECT value FROM config WHERE key = 'pub_date_timezone_fix_v1'");
+        if ($stmt->fetchColumn() !== false) {
+            return;
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->pdo->exec("
+                UPDATE news
+                SET pub_date = datetime(pub_date, '-3 hours')
+                WHERE pub_date IS NOT NULL
+                  AND LENGTH(pub_date) = 19
+            ");
+
+            $stmt = $this->pdo->prepare("
+                INSERT OR REPLACE INTO config (key, value)
+                VALUES ('pub_date_timezone_fix_v1', :val)
+            ");
+            $stmt->execute([':val' => (string)time()]);
+
+            $this->pdo->commit();
+        } catch (\Exception $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
     }
 
     /**

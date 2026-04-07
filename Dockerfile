@@ -1,10 +1,13 @@
 FROM php:8.2-apache
 
+ENV TZ=America/Argentina/Buenos_Aires
+
 # Instalar dependencias del sistema y extensiones PHP necesarias
 RUN apt-get update && apt-get install -y \
         libsqlite3-dev \
         cron \
     && docker-php-ext-install pdo pdo_sqlite \
+    && printf "date.timezone=%s\n" "$TZ" > /usr/local/etc/php/conf.d/timezone.ini \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Habilitar mod_rewrite para que funcione el .htaccess
