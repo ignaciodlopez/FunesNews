@@ -111,8 +111,25 @@ class Database {
      */
     public function saveNews(array $newsItems): int {
         $stmt = $this->pdo->prepare("
-            INSERT OR IGNORE INTO news (title, link, image_url, source, pub_date, description, canonical_key)
+            INSERT INTO news (title, link, image_url, source, pub_date, description, canonical_key)
             VALUES (:title, :link, :image_url, :source, :pub_date, :description, :canonical_key)
+            ON CONFLICT(link) DO UPDATE SET
+                image_url = CASE
+                    WHEN (news.image_url IS NULL OR TRIM(news.image_url) = '' OR news.image_url LIKE 'https://picsum.photos/%' OR news.image_url LIKE 'https://images.unsplash.com/%')
+                         AND excluded.image_url IS NOT NULL AND TRIM(excluded.image_url) <> ''
+                    THEN excluded.image_url
+                    ELSE news.image_url
+                END,
+                description = CASE
+                    WHEN (news.description IS NULL OR TRIM(news.description) = '' OR (news.description LIKE '%...' AND LENGTH(news.description) < 500))
+                         AND excluded.description IS NOT NULL AND TRIM(excluded.description) <> ''
+                    THEN excluded.description
+                    ELSE news.description
+                END,
+                pub_date = CASE
+                    WHEN excluded.pub_date > news.pub_date THEN excluded.pub_date
+                    ELSE news.pub_date
+                END
         ");
 
         $inserted = 0;

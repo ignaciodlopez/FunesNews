@@ -28,9 +28,16 @@ $pdo = $r->getValue($db);
 
 // Todos los artículos reales (sin mocks)
 $stmt = $pdo->query("
-    SELECT id, link, image_url
+    SELECT id, link, COALESCE(image_url, '') AS image_url
     FROM news
     WHERE link NOT LIKE 'https://example.com%'
+      AND (
+            image_url IS NULL
+            OR TRIM(image_url) = ''
+            OR image_url LIKE 'https://picsum.photos/%'
+            OR image_url LIKE 'https://images.unsplash.com/%'
+            OR image_url LIKE 'https://%/http%'
+          )
     ORDER BY pub_date DESC
 ");
 
@@ -42,7 +49,7 @@ if ($total === 0) {
     exit;
 }
 
-echo "Artículos a procesar: {$total}\n\n";
+echo "Artículos a reparar: {$total}\n\n";
 
 $agg    = new Aggregator($db);
 $method = new ReflectionMethod(Aggregator::class, 'fetchOgImage');
@@ -75,7 +82,7 @@ foreach ($articles as $i => $article) {
     }
 
     // Pausa breve para no saturar los servidores de noticias
-    usleep(300_000); // 0.3 s
+    usleep(150_000); // 0.15 s
 }
 
 echo "\nListo. Actualizadas: {$ok} | Sin cambios: {$unchanged} | Sin imagen real: {$fail}\n";

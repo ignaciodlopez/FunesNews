@@ -122,23 +122,28 @@ class Aggregator {
     }
 
     /**
-     * Limpia imágenes genéricas repetidas del mismo medio dentro del mismo ciclo.
-     * Si una misma imagen aparece en 2+ artículos de la fuente, se elimina para
-     * evitar logos del sitio, portadas repetidas o placeholders visuales.
+     * Limpia únicamente imágenes claramente genéricas del sitio.
+     * Importante: NO se eliminan fotos periodísticas reales solo por repetirse
+     * en notas relacionadas, porque eso genera falsos positivos.
      */
     private function removeSiteWideImages(array $items): array {
-        // Contar frecuencia de cada imagen por fuente
         $freq = [];
         foreach ($items as $item) {
             $url = trim((string)($item['image_url'] ?? ''));
-            if ($url === '' || $this->isStockImage($url)) continue;
+            if ($url === '' || $this->isStockImage($url)) {
+                continue;
+            }
             $freq[$item['source']][$url] = ($freq[$item['source']][$url] ?? 0) + 1;
         }
 
         foreach ($items as &$item) {
             $url = trim((string)($item['image_url'] ?? ''));
-            if ($url === '' || $this->isStockImage($url)) continue;
-            if (($freq[$item['source']][$url] ?? 0) >= 2) {
+            if ($url === '' || $this->isStockImage($url)) {
+                continue;
+            }
+
+            $occurrences = (int)($freq[$item['source']][$url] ?? 0);
+            if ($occurrences >= 4 && $this->isLikelyGenericSiteImage($url)) {
                 $item['image_url'] = '';
             }
         }
@@ -357,12 +362,13 @@ class Aggregator {
             $encodedHtml = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $encodedHtml);
             if (preg_match_all('/<img((?:[^>](?!\/>))*.)>/i', $encodedHtml, $tags)) {
                 foreach ($tags[0] as $tag) {
-                    if (!preg_match('/src=["\']([^"\']+)["\']/i', $tag, $sm)) continue;
-                    $imgUrl = html_entity_decode($sm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $imgUrl = $this->extractImageCandidateFromTag($tag);
+                    if ($imgUrl === null) continue;
                     preg_match('/width=["\']?(\d+)/i', $tag, $wm);
                     preg_match('/height=["\']?(\d+)/i', $tag, $hm);
                     $w = (int)($wm[1] ?? 0);
                     $h = (int)($hm[1] ?? 0);
+                    $imgUrl = $this->normalizeImageUrl($imgUrl);
                     if ($this->isUsableImage($imgUrl, $w, $h)) return $imgUrl;
                 }
             }
@@ -373,12 +379,13 @@ class Aggregator {
         $rawDesc = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $rawDesc);
         if (preg_match_all('/<img((?:[^>](?!\/>))*.)>/i', $rawDesc, $tags)) {
             foreach ($tags[0] as $tag) {
-                if (!preg_match('/src=["\']([^"\']+)["\']/i', $tag, $sm)) continue;
-                $imgUrl = html_entity_decode($sm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $imgUrl = $this->extractImageCandidateFromTag($tag);
+                if ($imgUrl === null) continue;
                 preg_match('/width=["\']?(\d+)/i', $tag, $wm);
                 preg_match('/height=["\']?(\d+)/i', $tag, $hm);
                 $w = (int)($wm[1] ?? 0);
                 $h = (int)($hm[1] ?? 0);
+                $imgUrl = $this->normalizeImageUrl($imgUrl);
                 if ($this->isUsableImage($imgUrl, $w, $h)) return $imgUrl;
             }
         }
@@ -405,6 +412,7 @@ class Aggregator {
         if (stripos($url, '.gif') !== false) return false;
         if ($this->isAdImage($url)) return false;
         if ($this->isStockImage($url)) return false;
+        if ($this->isLikelyGenericSiteImage($url)) return false;
 
         // CDNs de emojis / íconos externos
         $badDomains = ['fbcdn.net', 'emoji.php', 'twimg.com/emoji', 's.w.org/images/core/emoji'];
@@ -436,12 +444,31 @@ class Aggregator {
     }
 
     /**
+     * Detecta logos, avatares o imágenes institucionales genéricas del sitio.
+     */
+    private function isLikelyGenericSiteImage(string $url): bool {
+        $lower = strtolower($url);
+        $patterns = [
+            'logo', 'favicon', 'avatar', 'placeholder', 'default', 'no-image',
+            'sin-imagen', 'site-share', 'share-default', 'og-default', 'brand'
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (str_contains($lower, $pattern)) {
+                return true;
+            }
+        }
+
+        return str_contains($lower, 'flex-app.tadevel-cdn.com/hostname/');
+    }
+
+    /**
      * Detecta si una URL de imagen corresponde a un banner publicitario.
      * Filtra patrones comunes de nombres de archivo de anuncios.
      */
     private function isAdImage(string $url): bool {
         $lower = strtolower(basename(parse_url($url, PHP_URL_PATH) ?? ''));
-        $adPatterns = ['banner', 'pauta', 'publicidad', 'anuncio', 'sponsor', 'propaganda', 'aviso'];
+        $adPatterns = ['banner', 'pauta', 'publicidad', 'anuncio', 'sponsor', 'propaganda', 'aviso', 'ads', 'promo'];
         foreach ($adPatterns as $pattern) {
             if (str_contains($lower, $pattern)) return true;
         }
@@ -558,12 +585,19 @@ class Aggregator {
             $pos   = strpos($html, parse_url($link, PHP_URL_PATH));
             if ($pos !== false) {
                 $chunk = substr($html, max(0, $pos - 600), 1200);
-                if (preg_match('/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $chunk, $im)) {
-                    $src = html_entity_decode(trim($im[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    if (stripos($src, '.gif') === false) {
+                if (preg_match_all('/<img\b[^>]*>/i', $chunk, $imgTags)) {
+                    foreach ($imgTags[0] as $tag) {
+                        $src = $this->extractImageCandidateFromTag($tag);
+                        if ($src === null || stripos($src, '.gif') !== false) {
+                            continue;
+                        }
                         $resolved = $this->resolveImageUrl($src, $scheme, $host);
+                        if ($resolved !== null) {
+                            $resolved = $this->normalizeImageUrl($resolved);
+                        }
                         if ($resolved !== null && $this->isUsableImage($resolved)) {
                             $image = $resolved;
+                            break;
                         }
                     }
                 }
@@ -638,35 +672,147 @@ class Aggregator {
         $scheme = $parsed['scheme'] ?? 'https';
         $host   = $parsed['host']   ?? '';
 
-        // 1º: wp-post-image (imagen destacada de WordPress) — más confiable que og:image
-        //     ya que siempre es la imagen del artículo, nunca el logo del sitio
-        if (preg_match('/<img[^>]+class=["\'][^"\']*wp-post-image[^"\']*["\'][^>]+src=["\']([^"\']+)["\']/i', $html, $m) ||
-            preg_match('/<img[^>]+src=["\']([^"\']+)["\'][^>]+class=["\'][^"\']*wp-post-image[^"\']*["\']/i', $html, $m)) {
-            $raw = html_entity_decode(trim($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            if ($raw !== '' && stripos($raw, '.gif') === false) {
-                return $this->resolveImageUrl($raw, $scheme, $host);
+        $candidates = [];
+
+        // 1º: imágenes destacadas / hero en el HTML
+        if (preg_match_all('/<img\b[^>]*class=["\'][^"\']*(?:wp-post-image|featured|hero|article|post-image|entry-image)[^"\']*["\'][^>]*>/i', $html, $matches)) {
+            foreach ($matches[0] as $tag) {
+                $candidate = $this->extractImageCandidateFromTag($tag);
+                if ($candidate !== null) {
+                    $candidates[] = $candidate;
+                }
             }
         }
 
         // 2º: og:image / twitter:image del <head>
-        $head = substr($html, 0, 15000);
-        $raw  = null;
-
-        if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $head, $m)) {
-            $raw = trim($m[1]);
-        } elseif (preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/i', $head, $m)) {
-            $raw = trim($m[1]);
-        } elseif (preg_match('/<meta[^>]+(?:name|property)=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']/i', $head, $m)) {
-            $raw = trim($m[1]);
-        } elseif (preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:name|property)=["\']twitter:image["\']/i', $head, $m)) {
-            $raw = trim($m[1]);
+        $head = substr($html, 0, 30000);
+        $metaPatterns = [
+            '/<meta[^>]+property=["\']og:image(?::secure_url)?["\'][^>]+content=["\']([^"\']+)["\']/i',
+            '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::secure_url)?["\']/i',
+            '/<meta[^>]+(?:name|property)=["\']twitter:image(?::src)?["\'][^>]+content=["\']([^"\']+)["\']/i',
+            '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:name|property)=["\']twitter:image(?::src)?["\']/i',
+        ];
+        foreach ($metaPatterns as $pattern) {
+            if (preg_match_all($pattern, $head, $matches)) {
+                foreach ($matches[1] as $raw) {
+                    $raw = trim($raw);
+                    if ($raw !== '') {
+                        $candidates[] = $raw;
+                    }
+                }
+            }
         }
 
-        if ($raw === null || $raw === '') {
-            return null;
+        // 3º: JSON-LD con campo image
+        if (preg_match_all('/"image"\s*:\s*"([^"]+)"/i', $html, $matches)) {
+            foreach ($matches[1] as $raw) {
+                $raw = trim($raw);
+                if ($raw !== '') {
+                    $candidates[] = $raw;
+                }
+            }
         }
 
-        return $this->resolveImageUrl($raw, $scheme, $host);
+        // 4º: fallback final sobre todas las imágenes del documento (soporta lazy-loading)
+        if (preg_match_all('/<img\b[^>]*>/i', $html, $matches)) {
+            foreach ($matches[0] as $tag) {
+                $candidate = $this->extractImageCandidateFromTag($tag);
+                if ($candidate !== null) {
+                    $candidates[] = $candidate;
+                }
+            }
+        }
+
+        // 5º: URLs de imagen embebidas en JSON o scripts del HTML (útil para CDNs modernos)
+        if (preg_match_all('~https?://[^"\'\s<>]+\.(?:avif|webp|png|jpe?g)(?:\?[^"\'\s<>]*)?~i', $html, $matches)) {
+            foreach ($matches[0] as $raw) {
+                $raw = trim($raw);
+                if ($raw !== '') {
+                    $candidates[] = $raw;
+                }
+            }
+        }
+
+        foreach (array_unique($candidates) as $raw) {
+            $resolved = $this->resolveImageUrl($raw, $scheme, $host);
+            if ($resolved === null) {
+                continue;
+            }
+
+            $resolved = $this->normalizeImageUrl($resolved);
+            if ($this->isUsableImage($resolved)) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractImageCandidateFromTag(string $tag): ?string
+    {
+        $attributes = ['data-lazy-srcset', 'data-srcset', 'srcset', 'data-lazy-src', 'data-src', 'data-original', 'src'];
+
+        foreach ($attributes as $attr) {
+            if (!preg_match('/' . preg_quote($attr, '/') . '=["\']([^"\']+)["\']/i', $tag, $m)) {
+                continue;
+            }
+
+            $raw = html_entity_decode(trim($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if ($raw === '' || str_starts_with($raw, 'data:image/')) {
+                continue;
+            }
+
+            if (str_contains($attr, 'srcset')) {
+                $raw = $this->pickBestSrcsetUrl($raw) ?? '';
+            }
+
+            if ($raw !== '') {
+                return $raw;
+            }
+        }
+
+        return null;
+    }
+
+    private function pickBestSrcsetUrl(string $srcset): ?string
+    {
+        $bestUrl = null;
+        $bestWidth = -1;
+
+        foreach (explode(',', $srcset) as $candidate) {
+            $candidate = trim($candidate);
+            if ($candidate === '') {
+                continue;
+            }
+
+            $parts = preg_split('/\s+/', $candidate);
+            $url = trim((string)($parts[0] ?? ''));
+            $descriptor = strtolower((string)($parts[1] ?? ''));
+            $width = (preg_match('/(\d+)w/', $descriptor, $m) === 1) ? (int)$m[1] : 0;
+
+            if ($url !== '' && $width >= $bestWidth) {
+                $bestUrl = $url;
+                $bestWidth = $width;
+            }
+        }
+
+        return $bestUrl;
+    }
+
+    private function normalizeImageUrl(string $url): string
+    {
+        $url = html_entity_decode(trim($url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $url = preg_replace('/\s+/', '%20', $url) ?? $url;
+
+        // En CDNs como Tadevel/Flex conviene priorizar una variante más grande
+        // para evitar miniaturas de 180/360 px cuando existe la de 720 px.
+        $url = preg_replace(
+            '~/(180|360|540)\.(avif|webp|png|jpe?g)(\?.*)?$~i',
+            '/720.$2$3',
+            $url
+        ) ?? $url;
+
+        return $url;
     }
 
     private function resolveImageUrl(string $raw, string $scheme, string $host): ?string
