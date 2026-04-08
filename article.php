@@ -31,13 +31,21 @@ const PROXY_DOMAINS = [
     'fmdiezfunes.com.ar',
 ];
 
-$rawImageUrl  = $article['image_url'] ?? '';
+$rawImageUrl  = trim((string)($article['image_url'] ?? ''));
+$isStockImage = $rawImageUrl !== ''
+    && preg_match('~(?:picsum\.photos|images\.unsplash\.com)~i', $rawImageUrl) === 1;
+if ($isStockImage) {
+    $rawImageUrl = '';
+}
+
 $imageHost    = strtolower(parse_url($rawImageUrl, PHP_URL_HOST) ?? '');
-$needsProxy   = array_reduce(PROXY_DOMAINS, fn($carry, $d) =>
+$needsProxy   = $rawImageUrl !== '' && array_reduce(PROXY_DOMAINS, fn($carry, $d) =>
     $carry || $imageHost === $d || str_ends_with($imageHost, '.' . $d), false);
-$imageUrl     = $needsProxy
-    ? 'api/img.php?url=' . urlencode($rawImageUrl)
-    : htmlspecialchars($rawImageUrl, ENT_QUOTES, 'UTF-8');
+$imageUrl     = $rawImageUrl === ''
+    ? ''
+    : ($needsProxy
+        ? 'api/img.php?url=' . urlencode($rawImageUrl)
+        : htmlspecialchars($rawImageUrl, ENT_QUOTES, 'UTF-8'));
 
 // Validar que el enlace externo use un esquema seguro (http/https)
 // para prevenir inyección de URLs tipo javascript: o data:

@@ -26,8 +26,6 @@ const ALLOWED_IMAGE_DOMAINS = [
     'media.ambito.com',
     'elliberador.com',
     'i0.wp.com',
-    'picsum.photos',
-    'images.unsplash.com',
     'infobae.com',
     'tn.com.ar',
     'resizer.lavoz.com.ar',

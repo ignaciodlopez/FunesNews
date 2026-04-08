@@ -53,7 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 
-    const FALLBACK_IMG = 'https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=600&auto=format&fit=crop';
+    const isStockImage = (url = '') => /picsum\.photos|images\.unsplash\.com/i.test(String(url));
+    const hasUsableImage = (url = '') => {
+        const normalized = String(url ?? '').trim();
+        return normalized !== '' && !isStockImage(normalized);
+    };
 
     /**
      * Dominios con hotlink protection activa.
@@ -91,6 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {string}
      */
     const resolveImgSrc = (url) => {
+        if (!hasUsableImage(url)) {
+            return '';
+        }
+
         try {
             const host = new URL(url).hostname;
             if (PROXY_DOMAINS.some(d => host === d || host.endsWith('.' + d))) {
@@ -100,21 +108,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return url;
     };
 
+    const getSourceInitials = (source = '') => {
+        const words = String(source).trim().split(/\s+/).filter(Boolean);
+        if (words.length === 0) return 'FN';
+        if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+        return words.slice(0, 2).map(word => word.charAt(0).toUpperCase()).join('');
+    };
+
+    const buildNoImagePlaceholder = (source = '') => `
+        <div class="card-media-placeholder" aria-hidden="true">
+            <div class="card-media-glyph">${escHtml(getSourceInitials(source))}</div>
+            <div class="card-media-text">Cobertura sin imagen</div>
+        </div>
+    `;
+
+    const markImageAsUnavailable = (img) => {
+        const wrapper = img?.closest('.card-img-wrapper');
+        if (img) {
+            img.remove();
+        }
+        if (wrapper) {
+            wrapper.classList.add('no-image');
+            if (!wrapper.querySelector('.card-media-placeholder')) {
+                wrapper.insertAdjacentHTML('afterbegin', buildNoImagePlaceholder(wrapper.dataset.source || ''));
+            }
+        }
+    };
+
     /**
      * Adjunta el handler de error a un <img>:
-     * Si la carga directa falla → proxy PHP → fallback Unsplash.
+     * si falla la carga directa intenta una vez por proxy y, si vuelve a fallar,
+     * deja la tarjeta sin imagen en lugar de mostrar una foto de stock.
      * @param {HTMLImageElement} img        - Elemento imagen.
      * @param {string}           originalSrc - URL original de la imagen.
      */
     const attachImgFallback = (img, originalSrc) => {
+        if (!img || !hasUsableImage(originalSrc)) {
+            markImageAsUnavailable(img);
+            return;
+        }
+
         img.onerror = () => {
             const px = proxyUrl(originalSrc);
             if (img.src !== px) {
                 img.src = px;
-            } else {
-                img.onerror = null;
-                img.src = FALLBACK_IMG;
+                return;
             }
+
+            img.onerror = null;
+            markImageAsUnavailable(img);
         };
     };
 
@@ -127,10 +169,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const createCard = (item, isNew = false) => {
         const card = document.createElement('article');
         card.className = `news-card${isNew ? ' new-card' : ''}`;
-        const imgSrc = resolveImgSrc(item.image_url);
+
+        const hasImage = hasUsableImage(item.image_url);
+        const imgSrc = hasImage ? resolveImgSrc(item.image_url) : '';
+
         card.innerHTML = `
-            <div class="card-img-wrapper">
-                <img src="${escHtml(imgSrc)}" alt="${escHtml(item.title)}" loading="lazy" width="640" height="360">
+            <div class="card-img-wrapper${hasImage ? '' : ' no-image'}" data-source="${escHtml(item.source)}">
+                ${hasImage
+                    ? `<img src="${escHtml(imgSrc)}" alt="${escHtml(item.title)}" loading="lazy" width="640" height="360">`
+                    : buildNoImagePlaceholder(item.source)}
                 <span class="card-source">${escHtml(item.source)}</span>
             </div>
             <div class="card-content">
@@ -141,7 +188,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
-        attachImgFallback(card.querySelector('img'), item.image_url);
+
+        const img = card.querySelector('img');
+        if (img) {
+            attachImgFallback(img, item.image_url);
+        }
+
         return card;
     };
 

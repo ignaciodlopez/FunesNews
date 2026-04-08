@@ -122,24 +122,24 @@ class Aggregator {
     }
 
     /**
-     * Reemplaza con placeholder Picsum las imágenes que aparecen en 2+ artículos
-     * de la misma fuente dentro del mismo ciclo — señal de imagen genérica del sitio.
+     * Limpia imágenes genéricas repetidas del mismo medio dentro del mismo ciclo.
+     * Si una misma imagen aparece en 2+ artículos de la fuente, se elimina para
+     * evitar logos del sitio, portadas repetidas o placeholders visuales.
      */
     private function removeSiteWideImages(array $items): array {
         // Contar frecuencia de cada imagen por fuente
         $freq = [];
         foreach ($items as $item) {
-            $url = $item['image_url'] ?? '';
-            if ($url === '' || str_contains($url, 'picsum.photos')) continue;
+            $url = trim((string)($item['image_url'] ?? ''));
+            if ($url === '' || $this->isStockImage($url)) continue;
             $freq[$item['source']][$url] = ($freq[$item['source']][$url] ?? 0) + 1;
         }
 
         foreach ($items as &$item) {
-            $url = $item['image_url'] ?? '';
-            if ($url === '' || str_contains($url, 'picsum.photos')) continue;
+            $url = trim((string)($item['image_url'] ?? ''));
+            if ($url === '' || $this->isStockImage($url)) continue;
             if (($freq[$item['source']][$url] ?? 0) >= 2) {
-                $seed = substr(md5($item['link']), 0, 8);
-                $item['image_url'] = "https://picsum.photos/seed/{$seed}/600/400";
+                $item['image_url'] = '';
             }
         }
         unset($item);
@@ -322,12 +322,12 @@ class Aggregator {
     /**
      * Extrae la URL de la imagen principal de un ítem RSS.
      * Prioridad: enclosure > media:content > content:encoded > description >
-     *            og:image de la página original > placeholder Picsum.
+     *            og:image de la página original.
      * Se usa og:image como fallback (no como primera opción) para evitar
      * una petición HTTP extra cuando el RSS ya embedía la imagen correcta.
      *
      * @param SimpleXMLElement $item Ítem del feed RSS
-     * @return string                URL de la imagen o del placeholder
+     * @return string                URL de la imagen o cadena vacía si no se encontró
      */
     private function extractImage(SimpleXMLElement $item): string {
         $link = trim((string)$item->link);
@@ -391,9 +391,8 @@ class Aggregator {
             }
         }
 
-        // Último recurso: placeholder único generado con Picsum
-        $seed = substr(md5($link), 0, 8);
-        return "https://picsum.photos/seed/{$seed}/600/400";
+        // Si no hay una imagen real usable, dejar vacío y que la UI no muestre stock.
+        return '';
     }
 
     /**
@@ -405,6 +404,7 @@ class Aggregator {
         if (!str_starts_with($url, 'http')) return false;
         if (stripos($url, '.gif') !== false) return false;
         if ($this->isAdImage($url)) return false;
+        if ($this->isStockImage($url)) return false;
 
         // CDNs de emojis / íconos externos
         $badDomains = ['fbcdn.net', 'emoji.php', 'twimg.com/emoji', 's.w.org/images/core/emoji'];
@@ -424,6 +424,15 @@ class Aggregator {
         }
 
         return true;
+    }
+
+    /**
+     * Detecta imágenes de stock/placeholder que no deben mostrarse al usuario.
+     */
+    private function isStockImage(string $url): bool {
+        $url = strtolower(trim($url));
+        return $url !== ''
+            && (str_contains($url, 'picsum.photos/') || str_contains($url, 'images.unsplash.com/'));
     }
 
     /**
@@ -483,7 +492,9 @@ class Aggregator {
 
         // Extraer base URL para resolver links relativos
         $parsed  = parse_url($url);
-        $baseUrl = $parsed['scheme'] . '://' . $parsed['host'];
+        $scheme  = $parsed['scheme'] ?? 'https';
+        $host    = $parsed['host'] ?? '';
+        $baseUrl = $scheme . '://' . $host;
 
         libxml_use_internal_errors(true);
         $dom = new DOMDocument();
@@ -548,9 +559,12 @@ class Aggregator {
             if ($pos !== false) {
                 $chunk = substr($html, max(0, $pos - 600), 1200);
                 if (preg_match('/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $chunk, $im)) {
-                    $src = $im[1];
+                    $src = html_entity_decode(trim($im[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
                     if (stripos($src, '.gif') === false) {
-                        $image = str_starts_with($src, '/') ? $baseUrl . $src : $src;
+                        $resolved = $this->resolveImageUrl($src, $scheme, $host);
+                        if ($resolved !== null && $this->isUsableImage($resolved)) {
+                            $image = $resolved;
+                        }
                     }
                 }
             }
@@ -563,16 +577,10 @@ class Aggregator {
                 }
             }
 
-            // Último recurso: placeholder Picsum
-            if ($image === null) {
-                $seed  = substr(md5($link), 0, 8);
-                $image = "https://picsum.photos/seed/{$seed}/600/400";
-            }
-
             $items[] = [
                 'title'       => $title,
                 'link'        => $link,
-                'image_url'   => $image,
+                'image_url'   => $image ?? '',
                 'source'      => $sourceName,
                 'pub_date'    => $pubDate,
                 'description' => null
@@ -663,6 +671,10 @@ class Aggregator {
 
     private function resolveImageUrl(string $raw, string $scheme, string $host): ?string
     {
+        $raw = html_entity_decode(trim($raw), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($raw === '' || $host === '') {
+            return null;
+        }
         if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
             return $raw;
         }
@@ -679,10 +691,10 @@ class Aggregator {
             if (str_starts_with($stripped, 'http://') || str_starts_with($stripped, 'https://')) {
                 return $stripped;
             }
-            return $scheme . '://' . $host . $raw;
+            return $scheme . '://' . $host . '/' . $stripped;
         }
 
-        return null;
+        return $scheme . '://' . $host . '/' . ltrim($raw, '/');
     }
 
     /**

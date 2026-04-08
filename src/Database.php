@@ -119,10 +119,15 @@ class Database {
         $this->pdo->beginTransaction();
         try {
             foreach ($newsItems as $item) {
+                $imageUrl = trim((string)($item['image_url'] ?? ''));
+                if ($imageUrl === '' || preg_match('~(?:picsum\.photos|images\.unsplash\.com)~i', $imageUrl) === 1) {
+                    $imageUrl = null;
+                }
+
                 $stmt->execute([
                     ':title'         => $item['title'],
                     ':link'          => $item['link'],
-                    ':image_url'     => $item['image_url'],
+                    ':image_url'     => $imageUrl,
                     ':source'        => $item['source'],
                     ':pub_date'      => $item['pub_date'],
                     ':description'   => $item['description'] ?? null,
