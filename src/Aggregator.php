@@ -68,6 +68,7 @@ class Aggregator {
         $saved = 0;
         if (!empty($newsList)) {
             $newsList = $this->deduplicateItems($newsList);
+            $newsList = $this->repairIncomingImages($newsList);
             $newsList = $this->removeSiteWideImages($newsList);
             $readyToSaveBySource = [];
             foreach ($newsList as $item) {
@@ -119,6 +120,40 @@ class Aggregator {
             json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             LOCK_EX
         );
+    }
+
+    /**
+     * Segunda pasada de autocorrección para imágenes faltantes, rotas o genéricas.
+     * Se ejecuta dentro del mismo ciclo del agregador, así no hace falta correr
+     * scripts manuales para las noticias nuevas que recién ingresan.
+     */
+    private function repairIncomingImages(array $items): array {
+        foreach ($items as &$item) {
+            $url = trim((string)($item['image_url'] ?? ''));
+            if (!$this->needsImageRepair($url)) {
+                continue;
+            }
+
+            $repaired = $this->fetchOgImage((string)$item['link']);
+            $item['image_url'] = ($repaired !== null && $this->isUsableImage($repaired))
+                ? $repaired
+                : '';
+        }
+        unset($item);
+
+        return $items;
+    }
+
+    private function needsImageRepair(string $url): bool {
+        $url = trim($url);
+        return $url === ''
+            || $this->isStockImage($url)
+            || $this->isMalformedImageUrl($url)
+            || $this->isLikelyGenericSiteImage($url);
+    }
+
+    private function isMalformedImageUrl(string $url): bool {
+        return preg_match('#^https?://[^/]+/https?://#i', $url) === 1;
     }
 
     /**

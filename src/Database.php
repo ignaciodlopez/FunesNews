@@ -136,10 +136,7 @@ class Database {
         $this->pdo->beginTransaction();
         try {
             foreach ($newsItems as $item) {
-                $imageUrl = trim((string)($item['image_url'] ?? ''));
-                if ($imageUrl === '' || preg_match('~(?:picsum\.photos|images\.unsplash\.com)~i', $imageUrl) === 1) {
-                    $imageUrl = null;
-                }
+                $imageUrl = $this->normalizeImageUrlForStorage($item['image_url'] ?? null);
 
                 $stmt->execute([
                     ':title'         => $item['title'],
@@ -158,6 +155,21 @@ class Database {
             throw $e;
         }
         return $inserted;
+    }
+
+    private function normalizeImageUrlForStorage(?string $imageUrl): ?string {
+        $imageUrl = trim((string)$imageUrl);
+        if ($imageUrl === '' || preg_match('~(?:picsum\.photos|images\.unsplash\.com)~i', $imageUrl) === 1) {
+            return null;
+        }
+
+        if (preg_match('#^https?://[^/]+/(https?://.+)$#i', $imageUrl, $m) === 1) {
+            $imageUrl = $m[1];
+        }
+
+        $imageUrl = preg_replace('#^(https?://[^/]+)//(.+)$#', '$1/$2', $imageUrl) ?? $imageUrl;
+
+        return $imageUrl !== '' ? $imageUrl : null;
     }
 
     /**
