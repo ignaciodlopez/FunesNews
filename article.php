@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/src/Database.php';
 require_once __DIR__ . '/src/Config.php';
 require_once __DIR__ . '/src/ArticleSummarizer.php';
+require_once __DIR__ . '/src/ArticleLoader.php';
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
@@ -11,70 +12,20 @@ if ($id <= 0) {
     exit;
 }
 
-$db      = new Database();
-$article = $db->getNewsById($id);
+$db   = new Database();
+$data = ArticleLoader::load($id, $db);
 
-if (!$article) {
+if ($data === null) {
     header('Location: index.php');
     exit;
 }
 
-$title        = htmlspecialchars($article['title'], ENT_QUOTES, 'UTF-8');
-$source       = htmlspecialchars($article['source'], ENT_QUOTES, 'UTF-8');
-$pubDate      = date('d \d\e F \d\e Y, H:i', strtotime($article['pub_date']));
-// Dominios con hotlink protection: usar proxy para no recibir imagen de acceso denegado
-const PROXY_DOMAINS = [
-    'lavozdefunes.com.ar',
-    'estacionline.com',
-    'funeshoy.com.ar',
-    'eloccidental.com.ar',
-    'fmdiezfunes.com.ar',
-];
-
-$rawImageUrl  = trim((string)($article['image_url'] ?? ''));
-$isStockImage = $rawImageUrl !== ''
-    && preg_match('~(?:picsum\.photos|images\.unsplash\.com)~i', $rawImageUrl) === 1;
-if ($isStockImage) {
-    $rawImageUrl = '';
-}
-
-$imageHost    = strtolower(parse_url($rawImageUrl, PHP_URL_HOST) ?? '');
-$needsProxy   = $rawImageUrl !== '' && array_reduce(PROXY_DOMAINS, fn($carry, $d) =>
-    $carry || $imageHost === $d || str_ends_with($imageHost, '.' . $d), false);
-$imageUrl     = $rawImageUrl === ''
-    ? ''
-    : ($needsProxy
-        ? 'api/img.php?url=' . urlencode($rawImageUrl)
-        : htmlspecialchars($rawImageUrl, ENT_QUOTES, 'UTF-8'));
-
-// Validar que el enlace externo use un esquema seguro (http/https)
-// para prevenir inyección de URLs tipo javascript: o data:
-$rawLink      = $article['link'];
-$parsedScheme = strtolower(parse_url($rawLink, PHP_URL_SCHEME) ?? '');
-$externalLink = in_array($parsedScheme, ['http', 'https'], true)
-    ? htmlspecialchars($rawLink, ENT_QUOTES, 'UTF-8')
-    : htmlspecialchars('index.php', ENT_QUOTES, 'UTF-8');
-
-// Usar descripción guardada o generarla con IA si es un snippet de RSS o no existe.
-// Se limpia description antes de pasar a getSummary() cuando es un snippet,
-// para que el summarizer no lo retorne early y sí llame a Gemini.
-$rawSummary   = $article['description'];
-$isRssSnippet = $rawSummary && str_ends_with(rtrim($rawSummary), '...');
-if ((!$rawSummary || $isRssSnippet) && !str_starts_with($article['link'], 'https://example.com')) {
-    $articleForSummary                = $article;
-    $articleForSummary['description'] = null; // forzar que getSummary() llame a Gemini
-    $rawSummary = (new ArticleSummarizer($db))->getSummary($articleForSummary) ?? $rawSummary;
-}
-
-$summaryParagraphs = [];
-if ($rawSummary) {
-    foreach (explode("\n\n", $rawSummary) as $para) {
-        $para = trim($para);
-        if ($para !== '') {
-            $summaryParagraphs[] = htmlspecialchars($para, ENT_QUOTES, 'UTF-8');
-        }
-    }
-}
+$title             = $data['title'];
+$source            = $data['source'];
+$pubDate           = $data['pubDate'];
+$imageUrl          = $data['imageUrl'];
+$externalLink      = $data['externalLink'];
+$summaryParagraphs = $data['summaryParagraphs'];
 ?>
 <!DOCTYPE html>
 <html lang="es">

@@ -7,7 +7,8 @@ require_once __DIR__ . '/Config.php';
  * Capa de acceso a datos SQLite.
  * Gestiona la tabla de noticias y la configuración clave-valor de la aplicación.
  */
-class Database {
+class Database
+{
     private PDO $pdo;
 
     /** Abre (o crea) la base de datos SQLite e inicializa las tablas necesarias. */

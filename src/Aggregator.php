@@ -5,7 +5,8 @@ declare(strict_types=1);
  * Agrega noticias desde múltiples fuentes RSS locales de Funes.
  * Genera datos de ejemplo (mock) cuando un feed no está disponible.
  */
-class Aggregator {
+class Aggregator
+{
     private Database $db;
     private string $logFile;
     private string $statusFile;

@@ -56,6 +56,7 @@ try {
         'sources' => $sourceStats,
     ], JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
+    error_log('[FunesYa][api/health.php] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     echo json_encode([
         'status' => 'error',

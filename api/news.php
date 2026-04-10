@@ -72,6 +72,7 @@ try {
     ], JSON_THROW_ON_ERROR);
 
 } catch (Exception $e) {
+    error_log('[FunesYa][api/news.php] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     // No exponer detalles internos (rutas, mensajes de PDO, etc.)
     echo json_encode([

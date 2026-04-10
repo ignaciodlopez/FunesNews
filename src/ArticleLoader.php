@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Carga y prepara todos los datos de un artículo para su visualización.
+ * Separa la lógica de negocio de la capa de presentación (article.php).
+ */
+class ArticleLoader
+{
+    /** Dominios con hotlink protection: se accede a sus imágenes a través del proxy. */
+    private const PROXY_DOMAINS = [
+        'lavozdefunes.com.ar',
+        'estacionline.com',
+        'funeshoy.com.ar',
+        'eloccidental.com.ar',
+        'fmdiezfunes.com.ar',
+    ];
+
+    /**
+     * Carga un artículo de la base de datos y prepara todas las variables
+     * necesarias para renderizar la vista.
+     *
+     * @return array{title: string, source: string, pubDate: string, imageUrl: string, externalLink: string, summaryParagraphs: list<string>}|null
+     *         null si el artículo no existe.
+     */
+    public static function load(int $id, Database $db): ?array
+    {
+        $article = $db->getNewsById($id);
+        if (!$article) {
+            return null;
+        }
+
+        $title   = htmlspecialchars($article['title'], ENT_QUOTES, 'UTF-8');
+        $source  = htmlspecialchars($article['source'], ENT_QUOTES, 'UTF-8');
+        $pubDate = date('d \d\e F \d\e Y, H:i', strtotime($article['pub_date']));
+
+        $imageUrl          = self::resolveImageUrl($article);
+        $externalLink      = self::resolveExternalLink($article['link']);
+        $summaryParagraphs = self::resolveSummary($article, $db);
+
+        return compact('title', 'source', 'pubDate', 'imageUrl', 'externalLink', 'summaryParagraphs');
+    }
+
+    /**
+     * Resuelve la URL final de la imagen: vacía si es placeholder de stock,
+     * proxiada si el dominio tiene hotlink protection, o directa en caso contrario.
+     */
+    private static function resolveImageUrl(array $article): string
+    {
+        $rawImageUrl = trim((string)($article['image_url'] ?? ''));
+
+        // Descartar imágenes de stock (placeholder)
+        if ($rawImageUrl !== '' && preg_match('~(?:picsum\.photos|images\.unsplash\.com)~i', $rawImageUrl) === 1) {
+            $rawImageUrl = '';
+        }
+
+        if ($rawImageUrl === '') {
+            return '';
+        }
+
+        $imageHost  = strtolower(parse_url($rawImageUrl, PHP_URL_HOST) ?? '');
+        $needsProxy = array_reduce(
+            self::PROXY_DOMAINS,
+            fn ($carry, $d) => $carry || $imageHost === $d || str_ends_with($imageHost, '.' . $d),
+            false
+        );
+
+        return $needsProxy
+            ? 'api/img.php?url=' . urlencode($rawImageUrl)
+            : htmlspecialchars($rawImageUrl, ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * Valida que el enlace externo use un esquema seguro (http/https)
+     * para prevenir inyección de URLs tipo javascript: o data:.
+     */
+    private static function resolveExternalLink(string $rawLink): string
+    {
+        $scheme = strtolower(parse_url($rawLink, PHP_URL_SCHEME) ?? '');
+
+        return in_array($scheme, ['http', 'https'], true)
+            ? htmlspecialchars($rawLink, ENT_QUOTES, 'UTF-8')
+            : htmlspecialchars('index.php', ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * Devuelve el resumen del artículo dividido en párrafos.
+     * Si no existe o es un snippet de RSS, genera uno nuevo con Gemini.
+     *
+     * @return list<string>
+     */
+    private static function resolveSummary(array $article, Database $db): array
+    {
+        $rawSummary   = $article['description'];
+        $isRssSnippet = $rawSummary && str_ends_with(rtrim($rawSummary), '...');
+
+        if ((!$rawSummary || $isRssSnippet) && !str_starts_with($article['link'], 'https://example.com')) {
+            $articleForSummary                = $article;
+            $articleForSummary['description'] = null; // forzar llamada a Gemini
+            $rawSummary = (new ArticleSummarizer($db))->getSummary($articleForSummary) ?? $rawSummary;
+        }
+
+        if (!$rawSummary) {
+            return [];
+        }
+
+        $paragraphs = [];
+        foreach (explode("\n\n", $rawSummary) as $para) {
+            $para = trim($para);
+            if ($para !== '') {
+                $paragraphs[] = htmlspecialchars($para, ENT_QUOTES, 'UTF-8');
+            }
+        }
+
+        return $paragraphs;
+    }
+}
