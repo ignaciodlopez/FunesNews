@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Endpoint REST que devuelve noticias locales en formato JSON.
- * Lanza el aggregator en background para no bloquear la respuesta al usuario.
+ * La actualización de datos la maneja el cron job (cada 2 min).
  * Soporta ETag/304 para reducir tráfico en las peticiones de polling.
  */
 header('Content-Type: application/json; charset=utf-8');
@@ -15,24 +15,7 @@ require_once __DIR__ . '/../src/Database.php';
 try {
     $db = new Database();
 
-    $lastUpdate    = $db->getLastUpdate();
-    $minutesPassed = (time() - $lastUpdate) / 60;
-
-    // Lanzar actualización en background cada 2 minutos.
-    // last_update debe representar únicamente el estado ya persistido,
-    // no el intento de actualización. La exclusión mutua real la resuelve
-    // scripts/run_aggregator.php con flock().
-    if ($minutesPassed >= 2) {
-        $script = realpath(__DIR__ . '/../scripts/run_aggregator.php');
-        if ($script !== false) {
-            $php = PHP_BINARY;
-            if (PHP_OS_FAMILY === 'Windows') {
-                pclose(popen("cmd /c start /b \"\" \"{$php}\" \"{$script}\" > NUL 2>&1", 'r'));
-            } else {
-                exec(escapeshellcmd($php) . ' ' . escapeshellarg($script) . ' > /dev/null 2>&1 &');
-            }
-        }
-    }
+    $lastUpdate = $db->getLastUpdate();
 
     // ETag basado en last_update: si el cliente ya tiene la versión actual,
     // responder 304 sin cuerpo (ahorra todo el JSON en la mayoría de polls).

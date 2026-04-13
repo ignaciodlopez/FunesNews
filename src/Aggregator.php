@@ -26,20 +26,6 @@ class Aggregator
         file_put_contents($this->logFile, $line, FILE_APPEND | LOCK_EX);
     }
 
-    /** @var array<string, string> Feeds RSS indexados por nombre del medio */
-    private $feeds = [
-        'InfoFunes' => 'https://infofunes.com.ar/rss.xml',
-        'La Voz de Funes' => 'https://lavozdefunes.com.ar/rss',
-        'Funes Hoy' => 'https://funeshoy.com.ar/feed/',
-        'El Occidental' => 'https://eloccidental.com.ar/feed/',
-        'Estacionline' => 'https://estacionline.com/feed/'
-    ];
-
-    /** @var array<string, string> Sitios sin RSS que se scrapean directamente */
-    private $scrapers = [
-        'FM Diez Funes' => 'https://www.fmdiezfunes.com.ar/noticias.php'
-    ];
-
     /** @param Database $db Instancia de la base de datos para persistir las noticias obtenidas */
     public function __construct(Database $db) {
         $this->db = $db;
@@ -56,12 +42,12 @@ class Aggregator
         $this->cycleStatus = [];
         $this->log('--- Inicio ciclo de actualización ---');
 
-        foreach ($this->feeds as $name => $url) {
+        foreach (Config::getFeeds() as $name => $url) {
             $feedItems = $this->parseFeed($url, $name);
             $newsList = array_merge($newsList, $feedItems);
         }
 
-        foreach ($this->scrapers as $name => $url) {
+        foreach (Config::getScrapers() as $name => $url) {
             $scrapedItems = $this->scrapeHtmlPage($url, $name);
             $newsList = array_merge($newsList, $scrapedItems);
         }

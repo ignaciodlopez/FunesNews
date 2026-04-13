@@ -33,6 +33,34 @@ class Config
     }
 
     /**
+     * Devuelve los feeds RSS configurados, indexados por nombre del medio.
+     *
+     * @return array<string, string>
+     */
+    public static function getFeeds(): array
+    {
+        return [
+            'InfoFunes'       => 'https://infofunes.com.ar/rss.xml',
+            'La Voz de Funes' => 'https://lavozdefunes.com.ar/rss',
+            'Funes Hoy'       => 'https://funeshoy.com.ar/feed/',
+            'El Occidental'   => 'https://eloccidental.com.ar/feed/',
+            'Estacionline'    => 'https://estacionline.com/feed/',
+        ];
+    }
+
+    /**
+     * Devuelve los sitios sin RSS que se obtienen por scraping, indexados por nombre.
+     *
+     * @return array<string, string>
+     */
+    public static function getScrapers(): array
+    {
+        return [
+            'FM Diez Funes' => 'https://www.fmdiezfunes.com.ar/noticias.php',
+        ];
+    }
+
+    /**
      * Devuelve el valor de una variable de entorno.
      * Primero busca en el .env del proyecto, luego en las variables del sistema.
      */

@@ -18,6 +18,11 @@ class ArticleLoader
         'fmdiezfunes.com.ar',
     ];
 
+    public function __construct(
+        private readonly Database $db,
+        private readonly ArticleSummarizer $summarizer
+    ) {}
+
     /**
      * Carga un artículo de la base de datos y prepara todas las variables
      * necesarias para renderizar la vista.
@@ -25,9 +30,9 @@ class ArticleLoader
      * @return array{title: string, source: string, pubDate: string, imageUrl: string, externalLink: string, summaryParagraphs: list<string>}|null
      *         null si el artículo no existe.
      */
-    public static function load(int $id, Database $db): ?array
+    public function load(int $id): ?array
     {
-        $article = $db->getNewsById($id);
+        $article = $this->db->getNewsById($id);
         if (!$article) {
             return null;
         }
@@ -38,7 +43,7 @@ class ArticleLoader
 
         $imageUrl          = self::resolveImageUrl($article);
         $externalLink      = self::resolveExternalLink($article['link']);
-        $summaryParagraphs = self::resolveSummary($article, $db);
+        $summaryParagraphs = $this->resolveSummary($article);
 
         return compact('title', 'source', 'pubDate', 'imageUrl', 'externalLink', 'summaryParagraphs');
     }
@@ -91,7 +96,7 @@ class ArticleLoader
      *
      * @return list<string>
      */
-    private static function resolveSummary(array $article, Database $db): array
+    private function resolveSummary(array $article): array
     {
         $rawSummary   = $article['description'];
         $isRssSnippet = $rawSummary && str_ends_with(rtrim($rawSummary), '...');
@@ -99,7 +104,7 @@ class ArticleLoader
         if ((!$rawSummary || $isRssSnippet) && !str_starts_with($article['link'], 'https://example.com')) {
             $articleForSummary                = $article;
             $articleForSummary['description'] = null; // forzar llamada a Gemini
-            $rawSummary = (new ArticleSummarizer($db))->getSummary($articleForSummary) ?? $rawSummary;
+            $rawSummary = $this->summarizer->getSummary($articleForSummary) ?? $rawSummary;
         }
 
         if (!$rawSummary) {

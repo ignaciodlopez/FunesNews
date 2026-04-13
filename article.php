@@ -12,8 +12,10 @@ if ($id <= 0) {
     exit;
 }
 
-$db   = new Database();
-$data = ArticleLoader::load($id, $db);
+$db         = new Database();
+$summarizer = new ArticleSummarizer($db);
+$loader     = new ArticleLoader($db, $summarizer);
+$data       = $loader->load($id);
 
 if ($data === null) {
     header('Location: index.php');

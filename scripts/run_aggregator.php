@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Script de actualización de noticias que se ejecuta en background.
- * Se invoca desde api/news.php de forma asíncrona para no bloquear al usuario.
+ * Invocado por el cron job configurado en el contenedor Docker (cada 2 min).
  *
  * Usa flock() para garantizar exclusión mutua atómica y evitar
  * la condición de carrera (TOCTOU) que existiría con file_exists().
@@ -31,6 +31,7 @@ if (!flock($lock, LOCK_EX | LOCK_NB)) {
 }
 
 try {
+    require_once __DIR__ . '/../src/Config.php';
     require_once __DIR__ . '/../src/Database.php';
     require_once __DIR__ . '/../src/Aggregator.php';
 
