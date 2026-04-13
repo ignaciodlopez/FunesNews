@@ -481,7 +481,21 @@ class Aggregator
             }
         }
 
-        return str_contains($lower, 'flex-app.tadevel-cdn.com/hostname/');
+        if (str_contains($lower, 'flex-app.tadevel-cdn.com/hostname/')) {
+            return true;
+        }
+
+        // Estacionline genera OG-images automáticas con nombre UUID para artículos sin foto real.
+        // Las fotos periodísticas reales tienen nombres descriptivos (ej: incendio-ruta-ao12.jpg).
+        // Patrón UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx con posible sufijo numérico (-1, -2…).
+        if (str_contains($lower, 'estacionline.com/wp-content/uploads/')) {
+            $filename = pathinfo(parse_url($url, PHP_URL_PATH) ?? '', PATHINFO_FILENAME);
+            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-\d+)?$/i', $filename)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
