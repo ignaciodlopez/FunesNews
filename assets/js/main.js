@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const PROXY_DOMAINS = [
         'lavozdefunes.com.ar',
         'estacionline.com',
+        'flex-assets.tadevel-cdn.com',
         'funeshoy.com.ar',
         'eloccidental.com.ar',
         'fmdiezfunes.com.ar',
