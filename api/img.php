@@ -35,8 +35,12 @@ const ALLOWED_IMAGE_DOMAINS = [
 // Tamaño máximo de imagen a proxiar: 8 MB
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-// TTL del caché de disco: 24 horas
-const CACHE_TTL = 86400;
+// TTL del caché de disco según tamaño:
+// imágenes pequeñas (<50 KB, probables placeholders) → 1 hora
+// imágenes grandes (fotos reales)                   → 24 horas
+const CACHE_TTL_SMALL = 3600;
+const CACHE_TTL_LARGE = 86400;
+const CACHE_SMALL_THRESHOLD = 50 * 1024; // 50 KB
 
 // Directorio de caché (dentro de data/ que ya está protegido por .htaccess)
 $cacheDir = __DIR__ . '/../data/img_cache';
@@ -88,23 +92,30 @@ $cacheHash  = sha1($rawUrl);
 $cachedFiles = glob($cacheDir . '/' . $cacheHash . '.*');
 $cachedFile  = $cachedFiles[0] ?? null;
 
-if ($cachedFile && (time() - filemtime($cachedFile)) < CACHE_TTL) {
-    // Servir desde caché: 0 requests HTTP externos
-    $ext = pathinfo($cachedFile, PATHINFO_EXTENSION);
-    $contentType = match ($ext) {
-        'jpg'  => 'image/jpeg',
-        'png'  => 'image/png',
-        'gif'  => 'image/gif',
-        'webp' => 'image/webp',
-        'svg'  => 'image/svg+xml',
-        default => 'image/jpeg',
-    };
-    header('Content-Type: ' . $contentType);
-    header('Cache-Control: public, max-age=' . CACHE_TTL);
-    header('X-Content-Type-Options: nosniff');
-    header('X-Cache: HIT');
-    readfile($cachedFile);
-    exit;
+if ($cachedFile) {
+    $cachedSize = filesize($cachedFile);
+    $ttl = ($cachedSize !== false && $cachedSize < CACHE_SMALL_THRESHOLD)
+        ? CACHE_TTL_SMALL
+        : CACHE_TTL_LARGE;
+
+    if ((time() - filemtime($cachedFile)) < $ttl) {
+        // Servir desde caché: 0 requests HTTP externos
+        $ext = pathinfo($cachedFile, PATHINFO_EXTENSION);
+        $contentType = match ($ext) {
+            'jpg'  => 'image/jpeg',
+            'png'  => 'image/png',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+            'svg'  => 'image/svg+xml',
+            default => 'image/jpeg',
+        };
+        header('Content-Type: ' . $contentType);
+        header('Cache-Control: public, max-age=' . $ttl);
+        header('X-Content-Type-Options: nosniff');
+        header('X-Cache: HIT');
+        readfile($cachedFile);
+        exit;
+    }
 }
 // ─────────────────────────────────────────────────────────────────────────────
 

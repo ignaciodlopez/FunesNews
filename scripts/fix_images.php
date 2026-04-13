@@ -37,7 +37,6 @@ $stmt = $pdo->query("
             OR image_url LIKE 'https://picsum.photos/%'
             OR image_url LIKE 'https://images.unsplash.com/%'
             OR image_url LIKE 'https://%/http%'
-            OR image_url GLOB 'https://estacionline.com/wp-content/uploads/*/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*'
           )
     ORDER BY pub_date DESC
 ");
@@ -78,16 +77,8 @@ foreach ($articles as $i => $article) {
             $unchanged++;
         }
     } else {
-        // Si el artículo tenía una imagen UUID placeholder de Estacionline y no se encontró
-        // una foto real en el sitio, limpiar la URL para mostrar el placeholder genérico.
-        if ($article['image_url'] !== '') {
-            $updateStmt->execute([':img' => null, ':id' => $article['id']]);
-            echo "Placeholder sin foto real → limpiado a null.\n";
-            $ok++;
-        } else {
-            echo "Sin og:image.\n";
-            $fail++;
-        }
+        echo "Sin og:image. Se mantiene la actual.\n";
+        $fail++;
     }
 
     // Pausa breve para no saturar los servidores de noticias

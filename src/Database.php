@@ -116,8 +116,7 @@ class Database
             VALUES (:title, :link, :image_url, :source, :pub_date, :description, :canonical_key)
             ON CONFLICT(link) DO UPDATE SET
                 image_url = CASE
-                    WHEN (news.image_url IS NULL OR TRIM(news.image_url) = '' OR news.image_url LIKE 'https://picsum.photos/%' OR news.image_url LIKE 'https://images.unsplash.com/%'
-                          OR news.image_url GLOB 'https://estacionline.com/wp-content/uploads/*/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*')
+                    WHEN (news.image_url IS NULL OR TRIM(news.image_url) = '' OR news.image_url LIKE 'https://picsum.photos/%' OR news.image_url LIKE 'https://images.unsplash.com/%')
                          AND excluded.image_url IS NOT NULL AND TRIM(excluded.image_url) <> ''
                     THEN excluded.image_url
                     ELSE news.image_url
@@ -170,14 +169,6 @@ class Database
         }
 
         $imageUrl = preg_replace('#^(https?://[^/]+)//(.+)$#', '$1/$2', $imageUrl) ?? $imageUrl;
-
-        // Estacionline: OG-images con nombre UUID son placeholders automáticos sin foto real.
-        if (preg_match('~estacionline\.com/wp-content/uploads/~i', $imageUrl)) {
-            $filename = pathinfo(parse_url($imageUrl, PHP_URL_PATH) ?? '', PATHINFO_FILENAME);
-            if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-\d+)?$/i', $filename)) {
-                return null;
-            }
-        }
 
         return $imageUrl !== '' ? $imageUrl : null;
     }
