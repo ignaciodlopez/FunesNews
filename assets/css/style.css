@@ -470,15 +470,140 @@ footer {
 /* ═══════════════════════════════════════
    Responsive
    ══════════════════════════════════════ */
+
+/* ── Móvil (≤ 768px) ── */
 @media (max-width: 768px) {
-    .navbar-content {
-        flex-direction: column;
-        gap: 15px;
+
+    /* Navbar: logo + botón en la misma fila, pill-nav debajo */
+    .navbar {
+        padding: 10px 0;
     }
 
+    .navbar-content {
+        display: grid;
+        grid-template-areas:
+            "logo actions"
+            "nav  nav";
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .logo    { grid-area: logo; }
+    nav      { grid-area: nav; }
+    .actions { grid-area: actions; }
+
+    /* Pill-nav: scroll horizontal en lugar de envolver */
     .pill-nav {
-        flex-wrap: wrap;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;   /* Firefox */
+    }
+
+    .pill-nav::-webkit-scrollbar { display: none; }
+
+    .pill {
+        flex-shrink: 0;
+        padding: 10px 18px;    /* área táctil más amplia */
+    }
+
+    /* Botón de icono: área táctil mínima recomendada */
+    .icon-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    /* Contenido principal */
+    main {
+        padding: 20px 0 40px;
+    }
+
+    .news-grid {
+        gap: 14px;
+    }
+
+    /* Tarjetas */
+    .card-content {
+        padding: 14px 16px;
+    }
+
+    .card-title {
+        font-size: 1.05rem;
+        margin-bottom: 10px;
+    }
+
+    .card-footer {
+        padding-top: 10px;
+    }
+
+    .card-date {
+        font-size: 0.8rem;
+    }
+
+    /* Banner de noticias nuevas: ajusta top al navbar móvil */
+    .new-news-banner {
+        top: 112px;
+        font-size: 0.85rem;
+        padding: 8px 14px;
+        border-radius: 8px;
+    }
+
+    /* Botón "Cargar más" */
+    .action-btn {
+        width: 100%;
         justify-content: center;
+        padding: 14px 20px;
+    }
+
+    /* Footer */
+    footer {
+        padding: 20px 0;
+    }
+}
+
+/* ── Pantallas muy pequeñas (≤ 400px) ── */
+@media (max-width: 400px) {
+    .container {
+        padding: 0 12px;
+    }
+
+    .logo {
+        font-size: 1.3rem;
+    }
+
+    /* Forzar columna única en teléfonos muy estrechos */
+    .news-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pill {
+        padding: 9px 14px;
+        font-size: 0.82rem;
+    }
+}
+
+/* ── Sin efectos hover en dispositivos táctiles ── */
+@media (hover: none) {
+    .news-card:hover {
+        transform: none;
+        border-color: var(--card-border);
+        box-shadow: none;
+    }
+
+    .news-card:hover .card-img-wrapper img {
+        transform: none;
+    }
+
+    .icon-btn:hover {
+        transform: none;
+        background: none;
+    }
+
+    .external-btn:hover {
+        opacity: 1;
+        transform: none;
     }
 }
 

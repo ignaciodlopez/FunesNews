@@ -151,6 +151,46 @@ $summaryParagraphs = $data['summaryParagraphs'];
             font-size: .8rem;
             color: var(--text-secondary);
         }
+
+        @media (max-width: 768px) {
+            .article-wrapper {
+                margin: 20px auto;
+                padding: 0 16px 60px;
+            }
+
+            .article-title {
+                font-size: clamp(1.3rem, 5vw, 1.8rem);
+                margin-bottom: 20px;
+            }
+
+            .article-description {
+                font-size: 1rem;
+                line-height: 1.7;
+                padding: 16px;
+                margin-bottom: 28px;
+            }
+
+            .external-btn {
+                width: 100%;
+                justify-content: center;
+                padding: 15px 20px;
+                font-size: 0.95rem;
+            }
+
+            .back-link {
+                margin-bottom: 20px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .article-wrapper {
+                padding: 0 12px 50px;
+            }
+
+            .article-meta {
+                gap: 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -214,7 +254,7 @@ $summaryParagraphs = $data['summaryParagraphs'];
 
     <footer>
         <div class="container text-center" style="padding: 20px 0; color: var(--text-secondary); font-size: .8rem;">
-            <p>FunesYa &copy; <?= date('Y') ?>. Noticias en tiempo real.</p>
+            <p>FunesYa &copy; <?= date('Y') ?>. Noticias en tiempo real de Funes, Santa Fe.</p>
         </div>
     </footer>
 </body>

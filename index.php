@@ -94,7 +94,7 @@
     <!-- Pie de página del sitio -->
     <footer>
         <div class="container text-center">
-            <p>FunesYa &copy; <?= date('Y') ?>. Noticias en tiempo real.</p>
+            <p>FunesYa &copy; <?= date('Y') ?>. Noticias en tiempo real de Funes, Santa Fe.</p>
         </div>
     </footer>
 
