@@ -60,28 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Dominios con hotlink protection activa.
-     * Estacionline devuelve 403; La Voz de Funes y otros WordPress devuelven 200
-     * con una imagen de "acceso denegado", por lo que onerror nunca dispara.
-     * Para estos dominios se usa el proxy directamente, sin esperar al fallo.
-     */
-    const PROXY_DOMAINS = [
-        'lavozdefunes.com.ar',
-        'estacionline.com',
-        'flex-assets.tadevel-cdn.com',
-        'funeshoy.com.ar',
-        'eloccidental.com.ar',
-        'fmdiezfunes.com.ar',
-        'infobae.com',
-        'tn.com.ar',
-        'radiofonica.com',
-        'ambito.com',
-        'media.ambito.com',
-        'elliberador.com',
-        'resizer.glanacion.com',
-    ];
-
-    /**
      * Devuelve la URL del proxy para una imagen externa.
      * @param {string} url - URL original de la imagen.
      * @returns {string}

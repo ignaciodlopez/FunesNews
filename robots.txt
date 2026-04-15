@@ -3,5 +3,4 @@ Disallow: /api/
 Disallow: /scripts/
 Disallow: /src/
 Disallow: /data/
-
 Sitemap: https://www.funesya.com.ar/sitemap.php

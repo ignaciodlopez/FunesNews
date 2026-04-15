@@ -6,21 +6,12 @@ require_once __DIR__ . '/src/Config.php';
 
 Config::bootstrap();
 
-// Dominios con hotlink protection: las imágenes se sirven vía proxy
-const SSR_PROXY_DOMAINS = [
-    'lavozdefunes.com.ar', 'estacionline.com', 'flex-assets.tadevel-cdn.com',
-    'funeshoy.com.ar', 'eloccidental.com.ar', 'fmdiezfunes.com.ar',
-    'infobae.com', 'tn.com.ar', 'radiofonica.com', 'ambito.com',
-    'media.ambito.com', 'elliberador.com', 'resizer.glanacion.com',
-];
-
 function ssrIsUsableImage(string $url): bool {
     return $url !== '' && !preg_match('~picsum\.photos|images\.unsplash\.com~i', $url);
 }
 
 function ssrResolveImgSrc(string $url, int $w = 640): string {
     if (!ssrIsUsableImage($url)) return '';
-    // Siempre pasar por el proxy para redimensionar a WebP
     return 'api/img.php?url=' . urlencode($url) . ($w > 0 ? '&w=' . $w : '');
 }
 
@@ -131,13 +122,20 @@ foreach ($ssrNews as $_item) {
     <?php endif; ?>
     <!-- Custom CSS con cache-buster basado en fecha de modificación del archivo -->
     <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/assets/css/style.css') ?>">
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-X7JKWCEVGL"></script>
+    <!-- Google Analytics: cargado después del evento load para no bloquear FCP/LCP/TBT -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-X7JKWCEVGL');
+    window.addEventListener('load', function () {
+        var s = document.createElement('script');
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-X7JKWCEVGL';
+        s.async = true;
+        document.head.appendChild(s);
+        s.onload = function () {
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-X7JKWCEVGL', { 'transport_type': 'beacon' });
+        };
+    });
     </script>
 </head>
 <body>
