@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} url - URL original de la imagen.
      * @returns {string}
      */
-    const proxyUrl = (url) => `api/img.php?url=${encodeURIComponent(url)}`;
+    const proxyUrl = (url) => `api/img.php?url=${encodeURIComponent(url)}&w=640`;
 
     /**
      * Devuelve la URL a usar para cargar una imagen.
@@ -99,14 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hasUsableImage(url)) {
             return '';
         }
-
-        try {
-            const host = new URL(url).hostname;
-            if (PROXY_DOMAINS.some(d => host === d || host.endsWith('.' + d))) {
-                return proxyUrl(url);
-            }
-        } catch (_) { /* URL inválida: usar directa */ }
-        return url;
+        // Siempre usar el proxy para redimensionar a 640px y convertir a WebP
+        return proxyUrl(url);
     };
 
     const getSourceInitials = (source = '') => {

@@ -18,15 +18,10 @@ function ssrIsUsableImage(string $url): bool {
     return $url !== '' && !preg_match('~picsum\.photos|images\.unsplash\.com~i', $url);
 }
 
-function ssrResolveImgSrc(string $url): string {
+function ssrResolveImgSrc(string $url, int $w = 640): string {
     if (!ssrIsUsableImage($url)) return '';
-    $host = strtolower(parse_url($url, PHP_URL_HOST) ?? '');
-    foreach (SSR_PROXY_DOMAINS as $d) {
-        if ($host === $d || str_ends_with($host, '.' . $d)) {
-            return 'api/img.php?url=' . urlencode($url);
-        }
-    }
-    return htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+    // Siempre pasar por el proxy para redimensionar a WebP
+    return 'api/img.php?url=' . urlencode($url) . ($w > 0 ? '&w=' . $w : '');
 }
 
 function ssrSourceInitials(string $source): string {
@@ -54,11 +49,12 @@ $ssrLastUpdate = $lastUpdate ? date('Y-m-d H:i:s', $lastUpdate) : '';
 $allSources    = array_merge(['Todas'], $ssrSources);
 
 // Primera imagen válida → hint de preload para el elemento LCP
+// Se usa la URL con proxy+w=640 (idéntica al src que tendrá el primer <img>)
 $lcpImageUrl = '';
 foreach ($ssrNews as $_item) {
     $raw = trim((string)($_item['image_url'] ?? ''));
     if (ssrIsUsableImage($raw)) {
-        $lcpImageUrl = ssrResolveImgSrc($raw);
+        $lcpImageUrl = ssrResolveImgSrc($raw, 640);
         break;
     }
 }
@@ -175,7 +171,7 @@ foreach ($ssrNews as $_item) {
             <?php foreach ($ssrNews as $i => $ssrItem):
                 $rawImg   = trim((string)($ssrItem['image_url'] ?? ''));
                 $hasImg   = ssrIsUsableImage($rawImg);
-                $imgSrc   = $hasImg ? ssrResolveImgSrc($rawImg) : '';
+                $imgSrc   = $hasImg ? ssrResolveImgSrc($rawImg, 640) : '';
                 $t        = htmlspecialchars($ssrItem['title'],  ENT_QUOTES, 'UTF-8');
                 $s        = htmlspecialchars($ssrItem['source'], ENT_QUOTES, 'UTF-8');
                 $initials = htmlspecialchars(ssrSourceInitials($ssrItem['source']), ENT_QUOTES, 'UTF-8');

@@ -47,6 +47,9 @@ $cacheDir = __DIR__ . '/../data/img_cache';
 
 $rawUrl = $_GET['url'] ?? '';
 
+// Ancho máximo de salida (0 = sin redimensionar). Validado a [1, 2000].
+$maxWidth = isset($_GET['w']) ? max(0, min(2000, (int)$_GET['w'])) : 0;
+
 // Decodificar HTML entities (&amp; → &) que pueden venir de URLs mal almacenadas
 $rawUrl = html_entity_decode($rawUrl, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
@@ -88,7 +91,7 @@ if (!is_dir($cacheDir)) {
     mkdir($cacheDir, 0750, true);
 }
 
-$cacheHash  = sha1($rawUrl);
+$cacheHash  = sha1($rawUrl . ($maxWidth > 0 ? ':w' . $maxWidth : ''));
 $cachedFiles = glob($cacheDir . '/' . $cacheHash . '.*');
 $cachedFile  = $cachedFiles[0] ?? null;
 
@@ -167,6 +170,71 @@ if (!str_starts_with($contentType, 'image/')) {
     exit;
 }
 
+/**
+ * Redimensiona la imagen al ancho indicado y la convierte a WebP si GD lo soporta.
+ * Devuelve los bytes procesados o null si no se puede transformar.
+ * El tipo MIME de salida se escribe en $contentType por referencia.
+ */
+function resizeAndConvert(string $imageData, string &$contentType, int $maxWidth): ?string
+{
+    if (!function_exists('imagecreatefromstring')) {
+        return null;
+    }
+
+    // SVG y GIF animado: no se procesan con GD
+    if (in_array($contentType, ['image/svg+xml', 'image/gif'], true)) {
+        return null;
+    }
+
+    $src = @imagecreatefromstring($imageData);
+    if ($src === false) {
+        return null;
+    }
+
+    $origW = imagesx($src);
+    $origH = imagesy($src);
+
+    if ($maxWidth > 0 && $origW > $maxWidth) {
+        $newW = $maxWidth;
+        $newH = (int)round($origH * ($maxWidth / $origW));
+        $dst  = imagecreatetruecolor($newW, $newH);
+        // Preservar transparencia (PNG)
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+        imagefilledrectangle($dst, 0, 0, $newW, $newH, $transparent);
+        imagealphablending($dst, true);
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+        imagedestroy($src);
+        $src = $dst;
+    }
+
+    // Intentar WebP (GD >= 7.0 lo soporta en la mayoría de instalaciones)
+    if (function_exists('imagewebp')) {
+        ob_start();
+        $ok = imagewebp($src, null, 82);
+        $result = ob_get_clean();
+        imagedestroy($src);
+        if ($ok && $result !== false && strlen($result) > 100) {
+            $contentType = 'image/webp';
+            return $result;
+        }
+    } else {
+        imagedestroy($src);
+    }
+
+    return null; // No se pudo convertir: se sirve el original
+}
+
+// Redimensionar/convertir si se solicitó ancho o si la imagen no es WebP ya
+$needsProcessing = $maxWidth > 0 && !in_array($contentType, ['image/svg+xml', 'image/gif'], true);
+if ($needsProcessing) {
+    $processed = resizeAndConvert($image, $contentType, $maxWidth);
+    if ($processed !== null) {
+        $image = $processed;
+    }
+}
+
 // Guardar en caché de disco para próximos requests
 $ext = match ($contentType) {
     'image/jpeg'    => 'jpg',
@@ -180,10 +248,12 @@ $ext = match ($contentType) {
 if ($cachedFile && file_exists($cachedFile)) {
     unlink($cachedFile);
 }
+$cachedSize = strlen($image);
+$ttl = $cachedSize < CACHE_SMALL_THRESHOLD ? CACHE_TTL_SMALL : CACHE_TTL_LARGE;
 file_put_contents($cacheDir . '/' . $cacheHash . '.' . $ext, $image);
 
 header('Content-Type: ' . $contentType);
-header('Cache-Control: public, max-age=' . CACHE_TTL);
+header('Cache-Control: public, max-age=' . $ttl);
 header('X-Content-Type-Options: nosniff');
 header('X-Cache: MISS');
 header('Content-Length: ' . strlen($image));
