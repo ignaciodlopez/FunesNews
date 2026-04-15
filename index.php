@@ -121,13 +121,13 @@ foreach ($ssrNews as $_item) {
     <!-- preconnect reduce la latencia DNS+TCP+TLS antes de que el CSS las solicite -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- preload + onload: descarga la hoja de fuentes sin bloquear el render.
-         Mientras no carga, el browser usa la fuente del sistema (display=swap). -->
+    <!-- display=optional: si la fuente no carga antes del primer render, se usa la fuente
+         del sistema sin hacer swap posterior. Elimina el CLS causado por FOUT. -->
     <link rel="preload" as="style"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@400;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@400;600;700&display=optional"
           onload="this.onload=null;this.rel='stylesheet'">
     <noscript>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@400;600;700&display=swap">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@400;600;700&display=optional">
     </noscript>
     <!-- Preload de la imagen LCP: el browser la descarga en paralelo antes de parsear el body -->
     <?php if ($lcpImageUrl !== ''): ?>
@@ -151,8 +151,11 @@ foreach ($ssrNews as $_item) {
             <h1 class="logo">Funes<span class="highlight">Ya</span></h1>
             <nav>
                 <div class="pill-nav" id="source-filters">
-                    <button class="pill active" data-source="Todas">Todas</button>
-                    <!-- Filtros de fuente generados dinámicamente desde JavaScript -->
+                    <?php foreach ($allSources as $src):
+                        $srcEsc = htmlspecialchars($src, ENT_QUOTES, 'UTF-8');
+                    ?>
+                    <button class="pill <?= $src === 'Todas' ? 'active' : '' ?>" data-source="<?= $srcEsc ?>"><?= $srcEsc ?></button>
+                    <?php endforeach; ?>
                 </div>
             </nav>
             <div class="actions">

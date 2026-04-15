@@ -411,12 +411,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Inicialización ───────────────────────────────────────────────────
     const ssr = window.__SSR__;
     if (ssr && ssr.ids && ssr.ids.length > 0) {
-        // El servidor ya rindió las tarjetas en HTML: solo hidratamos el estado JS.
+        // El servidor ya rindió las tarjetas y los pills en HTML: solo hidratamos el estado JS.
         ssr.ids.forEach(id => shownIds.add(id));
         lastKnownUpdate = ssr.lastUpdate;
         currentPage     = 1;
-        if (ssr.sources) updateFilters(ssr.sources);
-        if (ssr.hasMore)  loadMoreContainer.classList.remove('hidden');
+        availableSources = ssr.sources || ['Todas'];
+
+        // Adjuntar listeners a los pills SSR sin manipular el DOM (evita CLS)
+        sourceFilters.querySelectorAll('.pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                currentSource = btn.dataset.source;
+                currentPage = 1;
+                shownIds.clear();
+                lastKnownUpdate = null;
+                fetchNews(true, 1);
+            });
+        });
+
+        if (ssr.hasMore) loadMoreContainer.classList.remove('hidden');
 
         // Adjuntar el handler de error/fallback a las imágenes SSR
         document.querySelectorAll('#news-container article img[data-original-src]').forEach(img => {
