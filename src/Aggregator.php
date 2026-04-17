@@ -568,7 +568,7 @@ class Aggregator
         if (isset($content->encoded)) {
             $encodedHtml = (string)$content->encoded;
             $encodedHtml = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $encodedHtml);
-            if (preg_match_all('/<img((?:[^>](?!\/>))*.)>/i', $encodedHtml, $tags)) {
+            if (preg_match_all('/<img\b[^>]*>/i', $encodedHtml, $tags)) {
                 foreach ($tags[0] as $tag) {
                     $imgUrl = $this->extractImageCandidateFromTag($tag);
                     if ($imgUrl === null) continue;
@@ -585,7 +585,7 @@ class Aggregator
         // 4º: primer <img> en la descripción del ítem (excluyendo anuncios e imágenes retrato)
         $rawDesc = (string)$item->description;
         $rawDesc = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $rawDesc);
-        if (preg_match_all('/<img((?:[^>](?!\/>))*.)>/i', $rawDesc, $tags)) {
+        if (preg_match_all('/<img\b[^>]*>/i', $rawDesc, $tags)) {
             foreach ($tags[0] as $tag) {
                 $imgUrl = $this->extractImageCandidateFromTag($tag);
                 if ($imgUrl === null) continue;
