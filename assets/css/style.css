@@ -550,6 +550,15 @@ footer {
    Responsive
    ══════════════════════════════════════ */
 
+/* ── Tablets intermedias (830px–1057px): 3 columnas para evitar cards demasiado anchas ──
+   Por defecto auto-fill cambia de 2 a 3 cols recién a ~1058px (2×320+gaps+padding).
+   En este rango las cards superan los 430px de ancho y las imágenes se ven desproporcionadas. */
+@media (min-width: 830px) and (max-width: 1057px) {
+    .news-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 /* ── Móvil (≤ 768px) ── */
 @media (max-width: 768px) {
 
