@@ -16,6 +16,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let shownIds = new Set();      // IDs de noticias ya mostradas en pantalla
     let lastKnownUpdate = null;    // Último timestamp de actualización conocido
 
+    const sectionHeading = document.getElementById('section-heading');
+    const updateSectionHeading = (source) => {
+        if (!sectionHeading) return;
+        sectionHeading.textContent = source === 'Todas'
+            ? 'Últimas noticias de Funes'
+            : `Noticias de ${source}`;
+    };
+
+    /** Normaliza un texto para usar en URLs (slug). */
+    const slugify = (text) =>
+        text.toLowerCase()
+            .replace(/[áàâä]/g, 'a').replace(/[éèêë]/g, 'e')
+            .replace(/[íìîï]/g, 'i').replace(/[óòôö]/g, 'o')
+            .replace(/[úùûü]/g, 'u').replace(/ñ/g, 'n')
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+    const articleUrl = (id, title) =>
+        `articulo/${id}-${slugify(title).substring(0, 70)}`;
+
     const loadMoreBtn = document.getElementById('load-more-btn');
     const loadMoreContainer = document.getElementById('load-more-container');
 
@@ -179,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h2 class="card-title">${escHtml(item.title)}</h2>
                 <div class="card-footer">
                     <span class="card-date">${formatDate(item.pub_date)}</span>
-                    <a href="article.php?id=${item.id}" class="read-more">Leer artículo</a>
+                    <a href="${articleUrl(item.id, item.title)}" class="read-more">Leer artículo</a>
                 </div>
             </div>
         `;
@@ -272,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
                     btn.classList.add('active');
                     currentSource = source;
+                    updateSectionHeading(source);
                     currentPage = 1;
                     shownIds.clear();
                     lastKnownUpdate = null;
@@ -422,6 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
                 btn.classList.add('active');
                 currentSource = btn.dataset.source;
+                updateSectionHeading(btn.dataset.source);
                 currentPage = 1;
                 shownIds.clear();
                 lastKnownUpdate = null;

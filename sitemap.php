@@ -15,6 +15,16 @@ Config::bootstrap();
 
 const SITEMAP_SITE_URL = 'https://www.funesya.com.ar';
 
+function sitemapSlugify(string $text): string {
+    $map = ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u','ñ'=>'n',
+            'à'=>'a','â'=>'a','ä'=>'a','è'=>'e','ê'=>'e','ë'=>'e',
+            'ì'=>'i','î'=>'i','ï'=>'i','ò'=>'o','ô'=>'o','ö'=>'o','ù'=>'u','û'=>'u'];
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = strtr($text, $map);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    return trim($text, '-');
+}
+
 header('Content-Type: application/xml; charset=UTF-8');
 header('X-Robots-Tag: noindex');   // El sitemap en sí no debe indexarse
 
@@ -34,7 +44,8 @@ echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
   </url>
 
 <?php foreach ($articles as $article):
-    $loc     = SITEMAP_SITE_URL . '/article.php?id=' . (int)$article['id'];
+    $slug    = mb_substr(sitemapSlugify($article['title'] ?? ''), 0, 70);
+    $loc     = SITEMAP_SITE_URL . '/articulo/' . (int)$article['id'] . '-' . $slug;
     $lastmod = date('Y-m-d', strtotime($article['pub_date']));
     // Artículos de las últimas 48 h se incluyen como Google News items
     $isRecent = (time() - strtotime($article['pub_date'])) < 172800;

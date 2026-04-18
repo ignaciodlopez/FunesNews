@@ -32,9 +32,21 @@ $ogImageUrl        = $data['ogImageUrl'];
 $pubDateIso        = $data['pubDateIso'];
 $needsAiSummary    = $data['needsAiSummary'];
 
+// Genera slug para URL amigable (solo para fines de URL; el ID sigue siendo la clave)
+function articleSlugify(string $text): string {
+    $map = ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u','ñ'=>'n',
+            'à'=>'a','â'=>'a','ä'=>'a','è'=>'e','ê'=>'e','ë'=>'e',
+            'ì'=>'i','î'=>'i','ï'=>'i','ò'=>'o','ô'=>'o','ö'=>'o','ù'=>'u','û'=>'u'];
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = strtr($text, $map);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    return trim($text, '-');
+}
+
 // Valores para SEO (decodificados de HTML para uso en JSON-LD)
-$canonicalUrl    = 'https://www.funesya.com.ar/article.php?id=' . $id;
 $rawTitle        = htmlspecialchars_decode($title, ENT_QUOTES);
+$slug            = mb_substr(articleSlugify($rawTitle), 0, 70);
+$canonicalUrl    = 'https://www.funesya.com.ar/articulo/' . $id . '-' . $slug;
 $rawSource       = htmlspecialchars_decode($source, ENT_QUOTES);
 $rawDescription  = htmlspecialchars_decode($summaryParagraphs[0] ?? '', ENT_QUOTES);
 $metaDescription = mb_strlen($rawDescription) > 160
@@ -46,6 +58,9 @@ header('Cache-Control: public, max-age=3600, stale-while-revalidate=86400');
 <!DOCTYPE html>
 <html lang="es" style="background:#0f1115">
 <head>
+    <!-- Base href: resuelve rutas relativas (assets/, api/) correctamente
+         cuando la URL es /articulo/ID-slug en lugar de article.php -->
+    <base href="/">
     <meta charset="UTF-8">
     <meta name="color-scheme" content="dark">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

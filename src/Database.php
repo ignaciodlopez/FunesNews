@@ -267,7 +267,7 @@ class Database
      */
     public function getAllForSitemap(): array {
         $stmt = $this->pdo->query(
-            "SELECT id, pub_date FROM news ORDER BY pub_date DESC LIMIT 50000"
+            "SELECT id, title, pub_date FROM news ORDER BY pub_date DESC LIMIT 50000"
         );
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

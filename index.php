@@ -52,6 +52,20 @@ function ssrFormatDate(string $pubDate): string {
     return sprintf('%02d %s %d', (int)date('d', $ts), $months[(int)date('n', $ts) - 1], (int)date('Y', $ts));
 }
 
+function ssrSlugify(string $text): string {
+    $map = ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ü'=>'u','ñ'=>'n',
+            'à'=>'a','â'=>'a','ä'=>'a','è'=>'e','ê'=>'e','ë'=>'e',
+            'ì'=>'i','î'=>'i','ï'=>'i','ò'=>'o','ô'=>'o','ö'=>'o','ù'=>'u','û'=>'u'];
+    $text = mb_strtolower($text, 'UTF-8');
+    $text = strtr($text, $map);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    return trim($text, '-');
+}
+
+function ssrArticleUrl(int $id, string $title): string {
+    return 'articulo/' . $id . '-' . mb_substr(ssrSlugify($title), 0, 70);
+}
+
 $db          = new Database();
 $ssrNews     = $db->getNews(12);
 $ssrSources  = $db->getSources();
@@ -62,15 +76,21 @@ $ssrHasMore    = count($ssrNews) === 12;
 $ssrLastUpdate = $lastUpdate ? date('Y-m-d H:i:s', $lastUpdate) : '';
 $allSources    = array_merge(['Todas'], $ssrSources);
 
-// Primera imagen válida → hint de preload para el elemento LCP
-// Se usa la URL con proxy+w=640 (idéntica al src que tendrá el primer <img>)
-$lcpImageUrl = '';
+// Primera imagen válida → hint de preload LCP + og:image de la portada
+$lcpImageUrl  = '';
+$ogHomeImage  = '';
 foreach ($ssrNews as $_item) {
     $raw = trim((string)($_item['image_url'] ?? ''));
-    if (ssrIsUsableImage($raw)) {
+    if (!ssrIsUsableImage($raw)) continue;
+    if ($lcpImageUrl === '') {
         $lcpImageUrl = ssrResolveImgSrc($raw, 640);
-        break;
     }
+    if ($ogHomeImage === '') {
+        $ogHomeImage = ssrNeedsProxy($raw)
+            ? 'https://www.funesya.com.ar/api/img.php?url=' . urlencode($raw) . '&w=640'
+            : htmlspecialchars($raw, ENT_QUOTES, 'UTF-8');
+    }
+    if ($lcpImageUrl !== '' && $ogHomeImage !== '') break;
 }
 header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
 ?>
@@ -98,11 +118,19 @@ header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
     <meta property="og:locale" content="es_AR">
     <meta property="og:title" content="FunesYa — Noticias de Funes, Santa Fe en tiempo real">
     <meta property="og:description" content="Las últimas noticias de Funes, Santa Fe. Actualizadas cada 2 minutos desde múltiples medios locales.">
+    <?php if ($ogHomeImage !== ''): ?>
+    <meta property="og:image" content="<?= $ogHomeImage ?>">
+    <meta property="og:image:alt" content="FunesYa — Noticias de Funes, Santa Fe">
+    <?php endif; ?>
 
     <!-- Twitter / X Card -->
-    <meta name="twitter:card" content="summary">
+    <meta name="twitter:card" content="<?= $ogHomeImage !== '' ? 'summary_large_image' : 'summary' ?>">
     <meta name="twitter:title" content="FunesYa — Noticias de Funes, Santa Fe en tiempo real">
     <meta name="twitter:description" content="Las últimas noticias de Funes, Santa Fe. Actualizadas cada 2 minutos desde múltiples medios locales.">
+    <?php if ($ogHomeImage !== ''): ?>
+    <meta name="twitter:image" content="<?= $ogHomeImage ?>">
+    <meta name="twitter:image:alt" content="FunesYa — Noticias de Funes, Santa Fe">
+    <?php endif; ?>
 
     <!-- JSON-LD: WebSite + Organization -->
     <script type="application/ld+json">
@@ -216,7 +244,7 @@ header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
     <!-- Premium Dark Header -->
     <header class="navbar">
         <div class="container navbar-content">
-            <h1 class="logo">Funes<span class="highlight">Ya</span></h1>
+            <h1 class="logo" aria-label="FunesYa — Noticias de Funes, Santa Fe">Funes<span class="highlight">Ya</span></h1>
             <nav>
                 <div class="pill-nav" id="source-filters">
                     <?php foreach ($allSources as $src):
@@ -237,6 +265,7 @@ header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
     </header>
 
     <main class="container">
+        <h2 class="visually-hidden" id="section-heading" aria-live="polite">Últimas noticias de Funes</h2>
         <!-- Grilla principal de noticias -->
         <section class="news-grid" id="news-container">
         <?php if (!empty($ssrNews)): ?>
@@ -272,7 +301,7 @@ header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
                     <h2 class="card-title"><?= $t ?></h2>
                     <div class="card-footer">
                         <span class="card-date"><?= $dateStr ?></span>
-                        <a href="article.php?id=<?= (int)$ssrItem['id'] ?>" class="read-more">Leer artículo</a>
+                <a href="<?= htmlspecialchars(ssrArticleUrl((int)$ssrItem['id'], $ssrItem['title']), ENT_QUOTES, 'UTF-8') ?>" class="read-more">Leer artículo</a>
                     </div>
                 </div>
             </article>
