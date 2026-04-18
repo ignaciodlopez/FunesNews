@@ -10,7 +10,6 @@ declare(strict_types=1);
 ini_set('max_execution_time', '60');
 
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: public, max-age=86400');
 
 require_once __DIR__ . '/../src/Config.php';
 require_once __DIR__ . '/../src/Database.php';
@@ -47,6 +46,15 @@ if ($summary === null && $originalSnippet !== null) {
     if (mb_strlen($snippet, 'UTF-8') > 80) {
         $summary = $summarizer->generateFromText($snippet, (int)$row['id']);
     }
+}
+
+if ($summary === null || trim((string)$summary) === '') {
+    // No cachear respuestas vacías para que clientes reintenten pronto.
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+} else {
+    // Un resumen válido se puede cachear brevemente para reducir carga.
+    header('Cache-Control: public, max-age=300, stale-while-revalidate=600');
 }
 
 echo json_encode(['summary' => $summary], JSON_UNESCAPED_UNICODE);

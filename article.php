@@ -53,7 +53,15 @@ $metaDescription = mb_strlen($rawDescription) > 160
     ? mb_substr($rawDescription, 0, 157) . '…'
     : ($rawDescription !== '' ? $rawDescription : $rawTitle);
 $metaDescriptionEsc = htmlspecialchars($metaDescription, ENT_QUOTES, 'UTF-8');
-header('Cache-Control: public, max-age=3600, stale-while-revalidate=86400');
+
+// Evita que navegadores/proxies congelen una versión sin resumen.
+// Cuando todavía depende de IA, servimos la página sin caché.
+if ($needsAiSummary || empty($summaryParagraphs)) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+} else {
+    header('Cache-Control: public, max-age=3600, stale-while-revalidate=86400');
+}
 ?>
 <!DOCTYPE html>
 <html lang="es" style="background:#0f1115">

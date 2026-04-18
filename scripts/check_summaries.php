@@ -9,11 +9,12 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $rows = $pdo->query("SELECT id, title, source, link, description FROM news ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
 foreach ($rows as $r) {
     $desc       = trim((string)($r['description'] ?? ''));
+    $isTooShort = $desc !== '' && mb_strlen($desc, 'UTF-8') < 120;
     $isSnippet  = $desc !== ''
         && str_ends_with($desc, '...')
         && mb_strlen($desc, 'UTF-8') < 320;
     $isMock     = str_starts_with($r['link'], 'https://example.com');
-    $descStatus = $r['description'] === null ? 'NULL' : ($isSnippet ? 'SNIPPET(...)' : 'OK');
+    $descStatus = $r['description'] === null ? 'NULL' : (($isSnippet || $isTooShort) ? 'SNIPPET(...)' : 'OK');
 
     echo "ID: {$r['id']} [{$r['source']}] [{$descStatus}]" . PHP_EOL;
     echo "TITLE: " . mb_substr($r['title'], 0, 70) . PHP_EOL;

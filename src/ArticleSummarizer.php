@@ -14,7 +14,7 @@ declare(strict_types=1);
 class ArticleSummarizer
 {
     private const HTTP_TIMEOUT    = 10;
-    private const GEMINI_TIMEOUT  = 15;
+    private const GEMINI_TIMEOUT  = 25;
     private const GEMINI_MAX_RETRIES = 3;
     private const GEMINI_RETRY_BASE_MS = 700;
     private const MIN_PARA_LENGTH = 60;

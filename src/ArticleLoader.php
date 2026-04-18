@@ -9,6 +9,7 @@ declare(strict_types=1);
 class ArticleLoader
 {
     private const RSS_SNIPPET_MAX_LENGTH = 320;
+    private const MIN_COMPLETE_SUMMARY_LENGTH = 120;
 
     /** Dominios con hotlink protection: se accede a sus imágenes a través del proxy. */
     private static function proxyDomains(): array
@@ -47,10 +48,12 @@ class ArticleLoader
 
         $rawDesc        = $article['description'] ?? '';
         $trimmedDesc    = trim($rawDesc);
+        $isTooShort     = $trimmedDesc !== ''
+            && mb_strlen($trimmedDesc, 'UTF-8') < self::MIN_COMPLETE_SUMMARY_LENGTH;
         $isRssSnippet   = $trimmedDesc !== ''
             && str_ends_with($trimmedDesc, '...')
             && mb_strlen($trimmedDesc, 'UTF-8') < self::RSS_SNIPPET_MAX_LENGTH;
-        $needsAiSummary = (empty($rawDesc) || $isRssSnippet)
+        $needsAiSummary = (empty($rawDesc) || $isRssSnippet || $isTooShort)
             && !str_starts_with($article['link'], 'https://example.com');
 
         return compact('title', 'source', 'pubDate', 'imageUrl', 'externalLink', 'summaryParagraphs', 'ogImageUrl', 'pubDateIso', 'needsAiSummary');
@@ -126,10 +129,15 @@ class ArticleLoader
         // La generación por Gemini se realiza de forma asíncrona via api/summary.php
         // para no bloquear el renderizado de la página (evita TTFB alto).
         $trimmedSummary = trim($rawSummary);
+        $isTooShort     = $trimmedSummary !== ''
+            && mb_strlen($trimmedSummary, 'UTF-8') < self::MIN_COMPLETE_SUMMARY_LENGTH;
         $isRssSnippet   = $trimmedSummary !== ''
             && str_ends_with($trimmedSummary, '...')
             && mb_strlen($trimmedSummary, 'UTF-8') < self::RSS_SNIPPET_MAX_LENGTH;
 
+        // Mantener visible un resumen corto evita mostrar la nota vacía
+        // cuando Gemini está con timeouts. La regeneración se hace igual
+        // porque needsAiSummary ya cubre el caso "too short".
         if ($trimmedSummary === '' || $isRssSnippet) {
             return [];
         }

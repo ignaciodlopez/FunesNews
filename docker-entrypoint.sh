@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/sh
 set -e
 
 # Asegurar estructura y permisos básicos sobre el volumen montado de datos.
