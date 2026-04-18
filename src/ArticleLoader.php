@@ -8,6 +8,8 @@ declare(strict_types=1);
  */
 class ArticleLoader
 {
+    private const RSS_SNIPPET_MAX_LENGTH = 320;
+
     /** Dominios con hotlink protection: se accede a sus imágenes a través del proxy. */
     private static function proxyDomains(): array
     {
@@ -44,7 +46,10 @@ class ArticleLoader
         $pubDateIso        = date('c', strtotime($article['pub_date']));
 
         $rawDesc        = $article['description'] ?? '';
-        $isRssSnippet   = $rawDesc !== '' && str_ends_with(rtrim($rawDesc), '...');
+        $trimmedDesc    = trim($rawDesc);
+        $isRssSnippet   = $trimmedDesc !== ''
+            && str_ends_with($trimmedDesc, '...')
+            && mb_strlen($trimmedDesc, 'UTF-8') < self::RSS_SNIPPET_MAX_LENGTH;
         $needsAiSummary = (empty($rawDesc) || $isRssSnippet)
             && !str_starts_with($article['link'], 'https://example.com');
 
@@ -120,7 +125,12 @@ class ArticleLoader
 
         // La generación por Gemini se realiza de forma asíncrona via api/summary.php
         // para no bloquear el renderizado de la página (evita TTFB alto).
-        if (empty($rawSummary) || str_ends_with(rtrim($rawSummary), '...')) {
+        $trimmedSummary = trim($rawSummary);
+        $isRssSnippet   = $trimmedSummary !== ''
+            && str_ends_with($trimmedSummary, '...')
+            && mb_strlen($trimmedSummary, 'UTF-8') < self::RSS_SNIPPET_MAX_LENGTH;
+
+        if ($trimmedSummary === '' || $isRssSnippet) {
             return [];
         }
 

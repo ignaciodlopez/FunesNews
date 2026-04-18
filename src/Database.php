@@ -9,6 +9,8 @@ require_once __DIR__ . '/Config.php';
  */
 class Database
 {
+    private const RSS_SNIPPET_MAX_LENGTH = 320;
+
     private PDO $pdo;
 
     /** Abre (o crea) la base de datos SQLite e inicializa las tablas necesarias. */
@@ -122,7 +124,7 @@ class Database
                     ELSE news.image_url
                 END,
                 description = CASE
-                    WHEN (news.description IS NULL OR TRIM(news.description) = '' OR (news.description LIKE '%...' AND LENGTH(news.description) < 500))
+                    WHEN (news.description IS NULL OR TRIM(news.description) = '' OR (news.description LIKE '%...' AND LENGTH(news.description) < " . self::RSS_SNIPPET_MAX_LENGTH . "))
                          AND excluded.description IS NOT NULL AND TRIM(excluded.description) <> ''
                     THEN excluded.description
                     ELSE news.description
@@ -250,7 +252,7 @@ class Database
             SELECT * FROM news
             WHERE description IS NULL
                OR TRIM(description) = ''
-               OR (description LIKE '%...' AND LENGTH(description) < 500)
+               OR (description LIKE '%...' AND LENGTH(description) < " . self::RSS_SNIPPET_MAX_LENGTH . ")
             ORDER BY pub_date DESC
             LIMIT :limit
         ");
@@ -314,7 +316,7 @@ class Database
             WHERE link NOT LIKE 'https://example.com%'
               AND (
                   description IS NULL
-                  OR (description LIKE '%...' AND LENGTH(description) < 500)
+                  OR (description LIKE '%...' AND LENGTH(description) < " . self::RSS_SNIPPET_MAX_LENGTH . ")
               )
             ORDER BY id DESC
             LIMIT :limit

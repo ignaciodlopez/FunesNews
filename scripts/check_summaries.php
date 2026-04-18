@@ -8,7 +8,10 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $rows = $pdo->query("SELECT id, title, source, link, description FROM news ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
 foreach ($rows as $r) {
-    $isSnippet  = $r['description'] && str_ends_with(rtrim($r['description']), '...');
+    $desc       = trim((string)($r['description'] ?? ''));
+    $isSnippet  = $desc !== ''
+        && str_ends_with($desc, '...')
+        && mb_strlen($desc, 'UTF-8') < 320;
     $isMock     = str_starts_with($r['link'], 'https://example.com');
     $descStatus = $r['description'] === null ? 'NULL' : ($isSnippet ? 'SNIPPET(...)' : 'OK');
 

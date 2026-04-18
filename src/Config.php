@@ -99,7 +99,17 @@ class Config
             self::load();
         }
 
-        return self::$cache[$key] ?? $default;
+        if (array_key_exists($key, self::$cache)) {
+            return self::$cache[$key];
+        }
+
+        $env = getenv($key);
+        if ($env !== false) {
+            $env = trim((string)$env);
+            return $env !== '' ? $env : $default;
+        }
+
+        return $default;
     }
 
     private static function load(): void

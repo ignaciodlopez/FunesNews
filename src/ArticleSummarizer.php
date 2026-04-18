@@ -15,6 +15,8 @@ class ArticleSummarizer
 {
     private const HTTP_TIMEOUT    = 10;
     private const GEMINI_TIMEOUT  = 15;
+    private const GEMINI_MAX_RETRIES = 3;
+    private const GEMINI_RETRY_BASE_MS = 700;
     private const MIN_PARA_LENGTH = 60;
     private const MAX_PARAGRAPHS  = 8;
     private const MAX_TEXT_CHARS  = 4000;   // ~1 000 tokens; evita derrochar cuota de Gemini
@@ -262,31 +264,62 @@ class ArticleSummarizer
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
         ]);
 
-        $response = @file_get_contents($endpoint, false, $ctx);
-        if ($response === false) {
-            $this->log('[WARN] Gemini no respondió (timeout o red)');
+        for ($attempt = 1; $attempt <= self::GEMINI_MAX_RETRIES; $attempt++) {
+            $response = @file_get_contents($endpoint, false, $ctx);
+            if ($response === false) {
+                $this->log("[WARN] Gemini no respondió (timeout o red), intento {$attempt}/" . self::GEMINI_MAX_RETRIES);
+                if ($attempt < self::GEMINI_MAX_RETRIES) {
+                    usleep($this->retryDelayUs($attempt));
+                    continue;
+                }
+                return null;
+            }
+
+            $statusCode = 0;
+            if (!empty($http_response_header)) {
+                preg_match('/HTTP\/\S+\s+(\d+)/', $http_response_header[0] ?? '', $m);
+                $statusCode = (int)($m[1] ?? 0);
+            }
+
+            $data = json_decode($response, true);
+
+            // Reintentar solo en rate-limit y errores de servidor.
+            if ($statusCode >= 400) {
+                $errorMsg = $data['error']['message'] ?? 'error HTTP';
+                $retryable = $statusCode === 429 || $statusCode >= 500;
+                $this->log("[WARN] Gemini HTTP {$statusCode}: {$errorMsg} (intento {$attempt}/" . self::GEMINI_MAX_RETRIES . ')');
+                if ($retryable && $attempt < self::GEMINI_MAX_RETRIES) {
+                    usleep($this->retryDelayUs($attempt));
+                    continue;
+                }
+                return null;
+            }
+
+            $summary = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            if ($summary !== null) {
+                return $summary;
+            }
+
+            $errorMsg = $data['error']['message'] ?? 'respuesta inesperada';
+            $this->log("[WARN] Gemini: {$errorMsg} (intento {$attempt}/" . self::GEMINI_MAX_RETRIES . ')');
+            if ($attempt < self::GEMINI_MAX_RETRIES) {
+                usleep($this->retryDelayUs($attempt));
+                continue;
+            }
+
             return null;
         }
 
-        // Detectar errores HTTP de la API (429 rate-limit, 400 bad request, etc.)
-        if (!empty($http_response_header)) {
-            preg_match('/HTTP\/\S+\s+(\d+)/', $http_response_header[0] ?? '', $m);
-            $statusCode = (int)($m[1] ?? 0);
-            if ($statusCode >= 400) {
-                $this->log("[WARN] Gemini HTTP {$statusCode}");
-                return null;
-            }
-        }
+        return null;
+    }
 
-        $data = json_decode($response, true);
-        $summary = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-
-        if ($summary === null) {
-            $errorMsg = $data['error']['message'] ?? 'respuesta inesperada';
-            $this->log('[WARN] Gemini: ' . $errorMsg);
-        }
-
-        return $summary;
+    /** Delay exponencial con jitter para mitigar bursts y rate-limit. */
+    private function retryDelayUs(int $attempt): int
+    {
+        $exp = 1 << max(0, $attempt - 1);
+        $baseMs = self::GEMINI_RETRY_BASE_MS * $exp;
+        $jitterMs = random_int(0, 150);
+        return ($baseMs + $jitterMs) * 1000;
     }
 
     /**

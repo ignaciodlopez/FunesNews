@@ -20,9 +20,20 @@ echo count($rows) . " artículos con descripción incompleta o faltante." . PHP_
 $ok = 0;
 $fail = 0;
 foreach ($rows as $article) {
+    $originalSnippet = trim((string)($article['description'] ?? ''));
+
     // Forzar regeneración: limpiar description para que getSummary() llame a Gemini
     $article['description'] = null;
     $summary = $summarizer->getSummary($article);
+
+    // Si el scraping falla pero había snippet RSS, intentar resumir desde ese texto.
+    if ($summary === null && $originalSnippet !== '') {
+        $snippet = trim(rtrim($originalSnippet, '.'));
+        if (mb_strlen($snippet, 'UTF-8') > 80) {
+            $summary = $summarizer->generateFromText($snippet, (int)$article['id']);
+        }
+    }
+
     if ($summary !== null) {
         echo "[OK] ID {$article['id']}: " . mb_substr($article['title'], 0, 60) . PHP_EOL;
         $ok++;
