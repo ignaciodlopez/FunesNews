@@ -1,7 +1,3 @@
-[![Sitio en producción](https://www.funesya.com.ar/assets/captura2026.png)](https://www.funesya.com.ar/)
-
-> Accedé al sitio en producción: **[https://www.funesya.com.ar/](https://www.funesya.com.ar/)**
-
 # FunesYa
 
 ![PHP](https://img.shields.io/badge/PHP-8.2-777BB4?logo=php&logoColor=white)
@@ -13,6 +9,9 @@
 **Portal de noticias locales de Funes, Santa Fe** — agrega artículos en tiempo real desde múltiples medios locales, genera resúmenes con IA y los sirve como una web rápida y sin dependencias externas.
 
 ---
+
+<img width="1888" height="939" alt="image" src="https://github.com/user-attachments/assets/cc3f5717-e761-49d4-8f0c-b0d06e808b8e" />
+> Accedé al sitio en producción: **[https://www.funesya.com.ar/](https://www.funesya.com.ar/)**
 
 ## Tabla de contenidos
 
