@@ -596,7 +596,7 @@ class Aggregator
         $content = $item->children('content', true);
         if (isset($content->encoded)) {
             $encodedHtml = (string)$content->encoded;
-            $encodedHtml = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $encodedHtml);
+            $encodedHtml = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|estac-\d+|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>/si', '', $encodedHtml);
             if (preg_match_all('/<img\b[^>]*>/i', $encodedHtml, $tags)) {
                 foreach ($tags[0] as $tag) {
                     $imgUrl = $this->extractImageCandidateFromTag($tag);
@@ -613,7 +613,7 @@ class Aggregator
 
         // 4º: primer <img> en la descripción del ítem (excluyendo anuncios e imágenes retrato)
         $rawDesc = (string)$item->description;
-        $rawDesc = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>\s*<\/div>/si', '', $rawDesc);
+        $rawDesc = preg_replace('/<div[^>]+class="[^"]*(?:estac-entity-placement|estac-anuncio|estac-\d+|advertisement|ad-container)[^"]*"[^>]*>.*?<\/div>/si', '', $rawDesc);
         if (preg_match_all('/<img\b[^>]*>/i', $rawDesc, $tags)) {
             foreach ($tags[0] as $tag) {
                 $imgUrl = $this->extractImageCandidateFromTag($tag);
@@ -659,13 +659,14 @@ class Aggregator
 
         // Si el HTML informó dimensiones: descartar si es retrato o demasiado pequeña
         if ($w > 0 && $h > 0) {
-            if ($h > $w) return false;   // retrato
+            // Relación de aspecto extrema (más de 1.5 veces de alto que de ancho) -> descartar
+            if ($h > ($w * 1.5)) return false; 
             if ($w < 100 || $h < 60) return false; // ícono
         }
 
         // Detectar tamaño retrato desde el sufijo de URL WordPress (-251x300)
         if (preg_match('/-(?P<w>\d+)x(?P<h>\d+)\.(?:jpg|jpeg|png|webp)$/i', $url, $sz)) {
-            if ((int)$sz['h'] > (int)$sz['w']) return false;
+            if ((int)$sz['h'] > ((int)$sz['w'] * 1.5)) return false;
         }
 
         return true;
@@ -933,7 +934,7 @@ class Aggregator
             return $html !== '' ? $html : null;
         };
 
-        $html = $readHtml(true, 30720);
+        $html = $readHtml(true, 65536); // Aumentado de 30KB a 64KB para capturar metadatos en páginas con mucho inline CSS/JS.
         if ($html === null) {
             return null;
         }
@@ -973,10 +974,11 @@ class Aggregator
             }
         }
 
-        // 3º: JSON-LD con campo image
-        if (preg_match_all('/"image"\s*:\s*"([^"]+)"/i', $html, $matches)) {
-            foreach ($matches[1] as $raw) {
-                $raw = trim($raw);
+        // 3º: JSON-LD (formato Yoast y estándar). Busca el campo "url" cuando "image" es un objeto, o el string directo.
+        if (preg_match_all('/"image"\s*:\s*(?:\{[^}]*"url"\s*:\s*"([^"]+)"|(?:"([^"]+)"))/i', $html, $matches)) {
+            foreach ($matches[1] as $i => $raw) {
+                $raw = $raw !== '' ? $raw : $matches[2][$i];
+                $raw = trim((string)$raw);
                 if ($raw !== '') {
                     $candidates[] = $raw;
                 }
@@ -1230,7 +1232,7 @@ class Aggregator
      */
     private function repairRecentDbImages(): void {
         try {
-            $articles = $this->db->getRecentArticlesWithoutImage(15);
+            $articles = $this->db->getRecentArticlesWithoutImage(30);
         } catch (\Exception $e) {
             $this->log('[WARN] repairRecentDbImages: ' . $e->getMessage());
             return;
