@@ -86,6 +86,7 @@ class Config
             'resizer.lavoz.com.ar',
             'assets.dev-filo.dift.io',
             'cloudfront.net',
+            'i0.wp.com',
         ];
     }
 

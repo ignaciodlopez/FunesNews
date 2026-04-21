@@ -10,27 +10,9 @@ declare(strict_types=1);
  * se use como proxy abierto.
  */
 
-// Dominios de imágenes permitidos (exacto o subdominio)
-const ALLOWED_IMAGE_DOMAINS = [
-    'estacionline.com',
-    'lavozdefunes.com.ar',
-    'infofunes.com.ar',
-    'flex-assets.tadevel-cdn.com',
-    'fmdiezfunes.com.ar',
-    'eloccidental.com.ar',
-    'funeshoy.com.ar',
-    'resizer.glanacion.com',
-    'assets.dev-filo.dift.io',
-    'radiofonica.com',
-    'ambito.com',
-    'media.ambito.com',
-    'elliberador.com',
-    'i0.wp.com',
-    'infobae.com',
-    'tn.com.ar',
-    'resizer.lavoz.com.ar',
-    'cloudfront.net',
-];
+// Cargar lista de dominios desde Config (única fuente de verdad)
+require_once __DIR__ . '/../../src/Config.php';
+$allowedImageDomains = Config::getProxyDomains();
 
 // Tamaño máximo de imagen a proxiar: 8 MB
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -86,7 +68,7 @@ if (!in_array($scheme, ['http', 'https'], true)) {
 
 // Verificar que el host sea un dominio permitido (exacto o subdominio)
 $allowed = false;
-foreach (ALLOWED_IMAGE_DOMAINS as $domain) {
+foreach ($allowedImageDomains as $domain) {
     if ($host === $domain || str_ends_with($host, '.' . $domain)) {
         $allowed = true;
         break;
