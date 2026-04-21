@@ -426,6 +426,9 @@ class Database
     public function updateImageUrl(int $id, string $imageUrl): void {
         $stmt = $this->pdo->prepare("UPDATE news SET image_url = :img WHERE id = :id");
         $stmt->execute([':img' => $imageUrl, ':id' => $id]);
+        
+        // Actualizar last_update para invalidar caché del cliente vía ETag
+        $this->setLastUpdate(time());
     }
 
     /**

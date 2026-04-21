@@ -694,9 +694,19 @@ class Aggregator
             $path = parse_url($url, PHP_URL_PATH) ?? '';
             $filename = basename($path);
             // Si el nombre del archivo no tiene guiones seguidos de números (-1, -1024x768)
-            // ni la palabra 'scaled', es casi seguro la imagen generada por texto.
+            // ni la palabra 'scaled', podría ser una imagen placeholder.
+            // PERO: Si tiene un nombre descriptivo largo (3+ palabras), es probablemente válida.
             if (preg_match('/^[a-z0-9-]+\.jpe?g$/i', $filename) && !preg_match('/-\d+|scaled/i', $filename)) {
-                return true;
+                // Contar palabras (separadas por guiones)
+                $words = explode('-', strtolower(preg_replace('/\.(jpe?g|png|webp|avif)$/i', '', $filename)));
+                $words = array_filter($words, fn($w) => strlen($w) > 2); // Filtrar palabras de 3+ letras
+                
+                // Si tiene 3+ palabras significativas, es probablemente una imagen descriptiva válida
+                if (count($words) >= 3) {
+                    return false; // NO rechazar
+                }
+                
+                return true; // Rechazar como placeholder
             }
         }
 
@@ -1052,6 +1062,12 @@ class Aggregator
                                 $tag = $imgInfo[0];
                                 $url = $this->extractImageCandidateFromTag($tag);
                                 if ($url === null) continue;
+                                
+                                // FILTRO: Excluir imágenes de artículos relacionados (thumbnails)
+                                if (preg_match('/class=["\'][^"\']*(?:crp_thumb|crp_featured|related-post)[^"\']*/i', $tag)) {
+                                    continue; // Ignorar miniaturas de artículos relacionados
+                                }
+                                
                                 $score = 350; // Prioridad máxima por estar en el contenido principal
                                 $candidates[$url] = max(($candidates[$url] ?? 0), $score);
                             }
@@ -1085,6 +1101,7 @@ class Aggregator
         }
 
         // 1º: imágenes destacadas vía meta tags (og:image, twitter:image)
+        // IMPORTANTE: og:image tiene prioridad MUY ALTA porque es la imagen oficial del artículo
         $metaPatterns = [
             'og:image'      => '/<meta[^>]+property=["\']og:image(?:secure_url)?["\'][^>]+content=["\']([^"\']+)["\']/i',
             'og:image_rev'  => '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?:secure_url)?["\']/i',
@@ -1095,7 +1112,10 @@ class Aggregator
             if (preg_match_all($pattern, $html, $matches)) {
                 foreach ($matches[1] as $raw) {
                     $raw = trim($raw);
-                    if ($raw !== '') $candidates[$raw] = ($candidates[$raw] ?? 0) + 80;
+                    // Para Estacionline, og:image tiene prioridad máxima (700) porque es la imagen oficial
+                    // Para otros sitios, también alta prioridad (300)
+                    $ogScore = $isEstacionline ? 700 : 300;
+                    if ($raw !== '') $candidates[$raw] = max(($candidates[$raw] ?? 0), $ogScore);
                 }
             }
         }
@@ -1140,7 +1160,13 @@ class Aggregator
                                 $tag = $imgInfo[0];
                                 $url = $this->extractImageCandidateFromTag($tag);
                                 if ($url === null) continue;
-                                $score = 350; // Prioridad máxima por estar en el contenido principal
+                                
+                                // FILTRO: Excluir imágenes de artículos relacionados (thumbnails)
+                                if (preg_match('/class=["\'][^"\']*(?:crp_thumb|crp_featured|related-post)[^"\']*/i', $tag)) {
+                                    continue; // Ignorar miniaturas de artículos relacionados
+                                }
+                                
+                                $score = 350; // Prioridad alta por estar en el contenido principal
                                 $candidates[$url] = max(($candidates[$url] ?? 0), $score);
                             }
                         }
@@ -1190,6 +1216,36 @@ class Aggregator
         }
 
         if (empty($candidates)) return null;
+
+        // --- MEJORA: Convertir miniaturas a versiones completas ---
+        // Si detectamos una miniatura (ej: image-150x150.jpg), agregar también la versión completa (image.jpg)
+        $thumbnailPatterns = [
+            '/-150x150\.(jpe?g|png|webp|avif)$/i',
+            '/-100x100\.(jpe?g|png|webp|avif)$/i',
+            '/-75x75\.(jpe?g|png|webp|avif)$/i',
+            '/-300x\d+\.(jpe?g|png|webp|avif)$/i',
+            '/-\d+x\d+\.(jpe?g|png|webp|avif)$/i',
+        ];
+        
+        $upgradedCandidates = [];
+        foreach ($candidates as $url => $score) {
+            foreach ($thumbnailPatterns as $pattern) {
+                if (preg_match($pattern, $url, $m)) {
+                    // Construir URL de versión completa eliminando el sufijo de dimensiones
+                    $fullSizeUrl = preg_replace($pattern, '.' . $m[1], $url);
+                    if ($fullSizeUrl !== $url) {
+                        // Dar prioridad alta a la versión completa
+                        $upgradedCandidates[$fullSizeUrl] = max(($candidates[$fullSizeUrl] ?? 0), $score + 200);
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // Fusionar las versiones completas encontradas
+        foreach ($upgradedCandidates as $url => $score) {
+            $candidates[$url] = $score;
+        }
 
         // Scoring final basado en la URL misma y relevancia semántica
         $scored = [];
