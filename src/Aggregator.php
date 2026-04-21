@@ -647,6 +647,7 @@ class Aggregator
     private function isUsableImage(string $url, int $w = 0, int $h = 0): bool {
         if (!str_starts_with($url, 'http')) return false;
         if (stripos($url, '.gif') !== false) return false;
+        if (stripos($url, '.svg') !== false) return false;
         if ($this->isAdImage($url)) return false;
         if ($this->isStockImage($url)) return false;
         if ($this->isLikelyGenericSiteImage($url)) return false;
@@ -688,7 +689,8 @@ class Aggregator
         $lower = strtolower($url);
         $patterns = [
             'logo', 'favicon', 'avatar', 'placeholder', 'default', 'no-image',
-            'sin-imagen', 'site-share', 'share-default', 'og-default', 'brand'
+            'sin-imagen', 'site-share', 'share-default', 'og-default', 'brand',
+            'social-image-generator', 'sig-image', 'sig=', 'icon'
         ];
 
         foreach ($patterns as $pattern) {
