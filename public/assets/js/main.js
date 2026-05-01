@@ -161,14 +161,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         img.onerror = () => {
-            const px = proxyUrl(originalSrc);
-            if (img.src !== px) {
-                img.src = px;
-                return;
-            }
-
             img.onerror = null;
-            markImageAsUnavailable(img);
+            // Resolver proxy a URL absoluta para comparar correctamente con img.src
+            // (img.src siempre devuelve URL absoluta; proxyUrl devuelve URL relativa)
+            const px = new URL(proxyUrl(originalSrc), document.baseURI).href;
+            if (img.src !== px) {
+                // Primer fallo: intentar cargar vía proxy
+                img.onerror = () => { img.onerror = null; markImageAsUnavailable(img); };
+                img.src = px;
+            } else {
+                // El proxy también falló: mostrar placeholder
+                markImageAsUnavailable(img);
+            }
         };
     };
 
@@ -455,6 +459,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Adjuntar el handler de error/fallback a las imágenes SSR
         document.querySelectorAll('#news-container article img[data-original-src]').forEach(img => {
             attachImgFallback(img, img.dataset.originalSrc);
+            // Si la imagen ya falló antes de que JS adjuntara el handler (muy común en carga
+            // inicial con URLs rotas), el evento 'error' ya se disparó y no se repite.
+            // Activar el fallback manualmente si la imagen está completa pero sin contenido.
+            if (img.complete && img.naturalWidth === 0) {
+                img.onerror?.();
+            }
         });
     } else {
         // Fallback: base de datos vacía o sin PHP, cargar vía API
